@@ -119,16 +119,33 @@ def draw_lines():
             marker=dict(size=8)
         ))
 
-    # Update layout
+    # Update layout with scroll/pan enabled and zoom disabled
     fig.update_layout(
         showlegend=False,
         title='Line Drawing',
         xaxis_title='X Coordinate',
         yaxis_title='Y Coordinate',
-        xaxis=dict(zeroline=True),
-        yaxis=dict(zeroline=True, scaleanchor="x", scaleratio=1),
+        xaxis=dict(
+            zeroline=True,
+            scaleanchor="y",
+            scaleratio=1,
+            constrain="domain"
+        ),
+        yaxis=dict(
+            zeroline=True,
+            constrain="domain"
+        ),
         width=800,
-        height=600
+        height=600,
+        dragmode='pan'  # Enable panning by default
+    )
+
+    # Configure interaction modes
+    fig.update_layout(
+        modebar=dict(
+            remove=['zoomIn', 'zoomOut', 'autoScale'],
+            add=['pan']
+        )
     )
 
     return fig
