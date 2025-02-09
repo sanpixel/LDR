@@ -137,26 +137,22 @@ def create_rectangle(start_point, side_length):
     """Create a rectangle-like shape with slightly randomized angles that closes back to start."""
     lines = []
     current = start_point
+    first_point = start_point
 
-    # Define four cardinal directions with very small random variations
-    # Using smaller angle variations (0-2 degrees) to ensure more rectangular shape
+    # Define three slightly randomized directions
     directions = [
-        ("North", 0, np.random.randint(0, 2), np.random.randint(0, 30), "East"),     # Almost North
-        ("North", 89, np.random.randint(0, 2), np.random.randint(0, 30), "East"),    # Almost East
-        ("South", 0, np.random.randint(0, 2), np.random.randint(0, 30), "East"),     # Almost South
-        ("South", 89, np.random.randint(0, 2), np.random.randint(0, 30), "West"),    # Almost West
+        ("North", np.random.randint(0, 15), np.random.randint(0, 60), np.random.randint(0, 60), "East"),    # ~North
+        ("North", np.random.randint(75, 90), np.random.randint(0, 60), np.random.randint(0, 60), "East"),   # ~East
+        ("South", np.random.randint(0, 15), np.random.randint(0, 60), np.random.randint(0, 60), "East"),    # ~South
     ]
 
-    # Draw four lines to form a rectangle
-    for i, (cardinal_ns, deg, min, sec, cardinal_ew) in enumerate(directions):
+    # Draw first three lines with random angles
+    for cardinal_ns, deg, min, sec, cardinal_ew in directions:
         # Convert DMS to decimal
         bearing = dms_to_decimal(deg, min, sec, cardinal_ns, cardinal_ew)
 
-        # Adjust distance for each side to maintain rectangular shape
-        current_distance = side_length
-
         # Calculate endpoint
-        end_point = calculate_endpoint(current, bearing, current_distance)
+        end_point = calculate_endpoint(current, bearing, side_length)
 
         # Create bearing description
         bearing_desc = f"{cardinal_ns} {deg}° {min}' {sec}\" {cardinal_ew}"
@@ -169,10 +165,31 @@ def create_rectangle(start_point, side_length):
             'end_y': end_point[1],
             'bearing': bearing,
             'bearing_desc': bearing_desc,
-            'distance': current_distance
+            'distance': side_length
         })
 
         current = end_point
+
+    # Calculate the bearing and distance for the closing line
+    dx = first_point[0] - current[0]
+    dy = first_point[1] - current[1]
+    closing_distance = np.sqrt(dx*dx + dy*dy)
+    closing_bearing = np.degrees(np.arctan2(dx, dy)) % 360
+
+    # Convert the closing bearing to DMS format
+    cardinal_ns, deg, min, sec, cardinal_ew = decimal_to_dms(closing_bearing)
+    bearing_desc = f"{cardinal_ns} {deg}° {min}' {sec}\" {cardinal_ew}"
+
+    # Add the closing line
+    lines.append({
+        'start_x': current[0],
+        'start_y': current[1],
+        'end_x': first_point[0],
+        'end_y': first_point[1],
+        'bearing': closing_bearing,
+        'bearing_desc': bearing_desc,
+        'distance': closing_distance
+    })
 
     return pd.DataFrame(lines)
 
