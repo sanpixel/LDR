@@ -74,13 +74,16 @@ def create_dxf():
         # Add text for bearing and distance
         mid_x = (row['start_x'] + row['end_x']) / 2
         mid_y = (row['start_y'] + row['end_y']) / 2
+
+        # Create text with correct position attributes
         msp.add_text(
             f"{row['bearing_desc']}\nDist: {row['distance']:.2f}",
             dxfattribs={
                 'height': min(row['distance'] * 0.1, 1.0),  # Scale text size with line length
-                'rotation': 0
+                'rotation': 0,
+                'insert': (mid_x, mid_y)  # Use insert attribute for positioning
             }
-        ).set_pos((mid_x, mid_y))
+        )
 
     # Save to bytes buffer
     buffer = BytesIO()
