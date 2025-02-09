@@ -256,6 +256,47 @@ def create_rectangle(start_point, side_length):
 
     return pd.DataFrame(lines)
 
+def create_test_dxf():
+    """Create a test DXF file with simple text content."""
+    try:
+        # Debug print
+        st.write("Creating test DXF file...")
+
+        doc = ezdxf.new("R2010")
+        msp = doc.modelspace()
+
+        # Add a simple text entity
+        msp.add_text("Test DXF File", dxfattribs={'height': 1.0, 'color': 1})
+
+        # Add a simple line
+        msp.add_line((0, 0, 0), (5, 5, 0))
+
+        try:
+            # Create BytesIO buffer and save DXF
+            buffer = BytesIO()
+            st.write("Saving test DXF to buffer...")
+
+            # Write document to buffer
+            doc.write(buffer)
+            buffer.seek(0)
+            dxf_data = buffer.getvalue()
+            buffer.close()
+
+            if dxf_data and len(dxf_data) > 0:
+                st.write(f"Test DXF file created successfully. Size: {len(dxf_data)} bytes")
+                return dxf_data
+            else:
+                st.error("Failed to create test DXF data: Buffer is empty")
+                return None
+
+        except Exception as save_error:
+            st.error(f"Error saving test DXF to buffer: {str(save_error)}")
+            return None
+
+    except Exception as e:
+        st.error(f"Failed to create test DXF file: {str(e)}")
+        return None
+
 def main():
     st.title("Line Drawing Application")
     initialize_session_state()
@@ -317,7 +358,7 @@ def main():
     st.markdown("---")
 
     # Create a row for additional control buttons
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
 
     # Add Rectangle button
     with col1:
@@ -346,7 +387,7 @@ def main():
                             label="Download DXF",
                             data=dxf_data,
                             file_name="line_drawing.dxf",
-                            mime="application/octet-stream"  # Changed MIME type
+                            mime="application/octet-stream"
                         )
                     else:
                         st.error("Error: Generated DXF file is empty")
@@ -354,6 +395,23 @@ def main():
                     st.error(f"Error creating DXF file: {str(e)}")
             else:
                 st.warning("Add some lines before exporting")
+
+    # Test DXF button
+    with col4:
+        if st.button("Test DXF", use_container_width=True):
+            try:
+                test_dxf_data = create_test_dxf()
+                if test_dxf_data and len(test_dxf_data) > 0:
+                    st.download_button(
+                        label="Download Test DXF",
+                        data=test_dxf_data,
+                        file_name="test.dxf",
+                        mime="application/octet-stream"
+                    )
+                else:
+                    st.error("Error: Generated test DXF file is empty")
+            except Exception as e:
+                st.error(f"Error creating test DXF file: {str(e)}")
 
     # Display the plot
     fig = draw_lines()
