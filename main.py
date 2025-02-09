@@ -61,14 +61,20 @@ def calculate_endpoint(start_point, bearing, distance):
 def create_dxf():
     """Create a DXF file from the current lines."""
     try:
+        # Debug print - starting DXF creation
+        st.write("Starting DXF creation...")
+
         doc = ezdxf.new("R2010")
         msp = doc.modelspace()
 
-        # Debug print
-        st.write("Creating DXF with following lines:")
+        # Debug print - document created
+        st.write("DXF document created successfully")
+
+        line_count = 0
+        # Add lines to modelspace
         for idx, row in st.session_state.lines.iterrows():
-            # Validate and convert coordinates
             try:
+                # Convert and validate coordinates
                 start_x = float(row['start_x'])
                 start_y = float(row['start_y'])
                 end_x = float(row['end_x'])
@@ -78,25 +84,41 @@ def create_dxf():
                 end_point = (end_x, end_y, 0.0)
 
                 # Debug print coordinates
-                st.write(f"Line {idx}: {start_point} to {end_point}")
+                st.write(f"Adding line {idx}: {start_point} to {end_point}")
 
                 # Add line to modelspace
                 msp.add_line(start_point, end_point)
+                line_count += 1
+
             except ValueError as ve:
                 st.error(f"Invalid coordinates in line {idx}: {str(ve)}")
                 return None
 
-        # Create BytesIO buffer to write DXF data
-        buffer = BytesIO()
-        doc.saveas(buffer)  # Changed to saveas() method
-        buffer.seek(0)
-        dxf_data = buffer.getvalue()  # Get binary data
-        buffer.close()
+        st.write(f"Successfully added {line_count} lines to DXF")
 
-        # Debug print
-        st.write(f"DXF data size: {len(dxf_data)} bytes")
+        try:
+            # Create BytesIO buffer and save DXF
+            buffer = BytesIO()
+            st.write("Saving DXF to buffer...")
 
-        return dxf_data
+            # Save document to buffer using explicit binary mode
+            doc.write(buffer)
+            buffer.seek(0)
+            dxf_data = buffer.getvalue()
+            buffer.close()
+
+            # Verify data
+            if dxf_data and len(dxf_data) > 0:
+                st.write(f"DXF file created successfully. Size: {len(dxf_data)} bytes")
+                return dxf_data
+            else:
+                st.error("Failed to create DXF data: Buffer is empty")
+                return None
+
+        except Exception as save_error:
+            st.error(f"Error saving DXF to buffer: {str(save_error)}")
+            return None
+
     except Exception as e:
         st.error(f"Failed to create DXF file: {str(e)}")
         return None
