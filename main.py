@@ -60,22 +60,24 @@ def calculate_endpoint(start_point, bearing, distance):
 
 def create_dxf():
     """Create a DXF file from the current lines."""
-    doc = ezdxf.new("R2010")
-    msp = doc.modelspace()
+    try:
+        doc = ezdxf.new("R2010")
+        msp = doc.modelspace()
 
-    # Add lines to the DXF
-    for _, row in st.session_state.lines.iterrows():
-        # Convert coordinates to float and create line
-        start_point = (float(row['start_x']), float(row['start_y']), 0)
-        end_point = (float(row['end_x']), float(row['end_y']), 0)
-        msp.add_line(start_point, end_point)
+        # Add lines to the DXF
+        for _, row in st.session_state.lines.iterrows():
+            # Convert coordinates to float and create line
+            start_point = (float(row['start_x']), float(row['start_y']), 0)
+            end_point = (float(row['end_x']), float(row['end_y']), 0)
+            msp.add_line(start_point, end_point)
 
-    # Create string buffer first
-    string_buffer = StringIO()
-    doc.saveas(string_buffer)
-
-    # Convert to bytes
-    return string_buffer.getvalue().encode('utf-8')
+        # Create BytesIO buffer to write DXF data
+        buffer = BytesIO()
+        doc.write(buffer)
+        buffer.seek(0)
+        return buffer.getvalue()
+    except Exception as e:
+        raise RuntimeError(f"Failed to create DXF file: {str(e)}")
 
 def initialize_session_state():
     """Initialize session state variables if they don't exist."""
@@ -293,13 +295,19 @@ def main():
     with col3:
         if st.button("Export DXF", use_container_width=True):
             if not st.session_state.lines.empty:
-                dxf_buffer = create_dxf()
-                st.download_button(
-                    label="Download DXF",
-                    data=dxf_buffer,
-                    file_name="line_drawing.dxf",
-                    mime="application/octet-stream"
-                )
+                try:
+                    dxf_data = create_dxf()
+                    if dxf_data and len(dxf_data) > 0:
+                        st.download_button(
+                            label="Download DXF",
+                            data=dxf_data,
+                            file_name="line_drawing.dxf",
+                            mime="application/x-dxf"
+                        )
+                    else:
+                        st.error("Error: Generated DXF file is empty")
+                except Exception as e:
+                    st.error(f"Error creating DXF file: {str(e)}")
             else:
                 st.warning("Add some lines before exporting")
 
