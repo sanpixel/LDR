@@ -73,11 +73,14 @@ def create_dxf():
 
         # Create BytesIO buffer to write DXF data
         buffer = BytesIO()
-        doc.write(buffer)
+        doc.save(buffer)  # Save to binary buffer
         buffer.seek(0)
-        return buffer.getvalue()
+        dxf_data = buffer.getvalue()  # Get binary data
+        buffer.close()
+        return dxf_data
     except Exception as e:
-        raise RuntimeError(f"Failed to create DXF file: {str(e)}")
+        st.error(f"Failed to create DXF file: {str(e)}")
+        return None
 
 def initialize_session_state():
     """Initialize session state variables if they don't exist."""
@@ -302,7 +305,7 @@ def main():
                             label="Download DXF",
                             data=dxf_data,
                             file_name="line_drawing.dxf",
-                            mime="application/x-dxf"
+                            mime="application/octet-stream"  # Changed MIME type
                         )
                     else:
                         st.error("Error: Generated DXF file is empty")
