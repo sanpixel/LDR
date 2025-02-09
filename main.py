@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from math import radians
 import ezdxf
-from io import BytesIO
+from io import BytesIO, StringIO
 
 def dms_to_decimal(degrees, minutes, seconds, cardinal_ns, cardinal_ew):
     """Convert DMS (Degrees, Minutes, Seconds) to decimal degrees."""
@@ -65,16 +65,17 @@ def create_dxf():
 
     # Add lines to the DXF
     for _, row in st.session_state.lines.iterrows():
-        # Add the line
-        start_point = (float(row['start_x']), float(row['start_y']), 0.0)
-        end_point = (float(row['end_x']), float(row['end_y']), 0.0)
+        # Convert coordinates to float and create line
+        start_point = (float(row['start_x']), float(row['start_y']), 0)
+        end_point = (float(row['end_x']), float(row['end_y']), 0)
         msp.add_line(start_point, end_point)
 
-    # Create a binary buffer
-    output = BytesIO()
-    doc.write(output)
-    output.seek(0)
-    return output.read()
+    # Create string buffer first
+    string_buffer = StringIO()
+    doc.saveas(string_buffer)
+
+    # Convert to bytes
+    return string_buffer.getvalue().encode('utf-8')
 
 def initialize_session_state():
     """Initialize session state variables if they don't exist."""
