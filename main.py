@@ -81,7 +81,7 @@ def create_dxf():
             st.write(f"Adding line {idx+1}: ({start[0]}, {start[1]}) to ({end[0]}, {end[1]})")
 
             try:
-                msp.add_line(start, end)
+                msp.add_line(start, end, dxfattribs={"layer": "Lines"})
             except Exception as line_error:
                 st.error(f"Error adding line {idx+1}: {str(line_error)}")
                 return None
@@ -123,7 +123,7 @@ def create_test_dxf():
         st.write(f"Adding test line: ({start[0]}, {start[1]}) to ({end[0]}, {end[1]})")
 
         try:
-            msp.add_line(start, end)
+            msp.add_line(start, end, dxfattribs={"layer": "TestLayer"})
         except Exception as line_error:
             st.error(f"Error adding test line: {str(line_error)}")
             return None
