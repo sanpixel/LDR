@@ -145,18 +145,19 @@ def draw_lines():
     return fig
 
 def create_rectangle(start_point, side_length):
-    """Create a rectangle by drawing 4 lines that close back to the start point."""
+    """Create a rectangle-like shape with slightly randomized angles that closes back to start."""
     lines = []
     current = start_point
+    first_point = start_point
 
-    # Define the four directions for a rectangle
+    # Define three slightly randomized directions
     directions = [
-        ("North", 0, 0, 0, "East"),    # North
-        ("North", 90, 0, 0, "East"),   # East
-        ("South", 0, 0, 0, "East"),    # South
-        ("North", 90, 0, 0, "West")    # West
+        ("North", np.random.randint(0, 15), np.random.randint(0, 60), np.random.randint(0, 60), "East"),    # ~North
+        ("North", np.random.randint(75, 90), np.random.randint(0, 60), np.random.randint(0, 60), "East"),   # ~East
+        ("South", np.random.randint(0, 15), np.random.randint(0, 60), np.random.randint(0, 60), "East"),    # ~South
     ]
 
+    # Draw first three lines with random angles
     for cardinal_ns, deg, min, sec, cardinal_ew in directions:
         # Convert DMS to decimal
         bearing = dms_to_decimal(deg, min, sec, cardinal_ns, cardinal_ew)
@@ -179,6 +180,27 @@ def create_rectangle(start_point, side_length):
         })
 
         current = end_point
+
+    # Calculate the bearing and distance for the closing line
+    dx = first_point[0] - current[0]
+    dy = first_point[1] - current[1]
+    closing_distance = np.sqrt(dx*dx + dy*dy)
+    closing_bearing = np.degrees(np.arctan2(dx, dy)) % 360
+
+    # Convert the closing bearing to DMS format
+    cardinal_ns, deg, min, sec, cardinal_ew = decimal_to_dms(closing_bearing)
+    bearing_desc = f"{cardinal_ns} {deg}° {min}' {sec}\" {cardinal_ew}"
+
+    # Add the closing line
+    lines.append({
+        'start_x': current[0],
+        'start_y': current[1],
+        'end_x': first_point[0],
+        'end_y': first_point[1],
+        'bearing': closing_bearing,
+        'bearing_desc': bearing_desc,
+        'distance': closing_distance
+    })
 
     return pd.DataFrame(lines)
 
