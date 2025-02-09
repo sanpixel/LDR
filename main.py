@@ -60,67 +60,28 @@ def calculate_endpoint(start_point, bearing, distance):
 
 def create_dxf():
     """Create a DXF file from the current lines."""
-    try:
-        # Debug print - starting DXF creation
-        st.write("Starting DXF creation...")
+    if st.session_state.lines.empty:
+        st.error("No lines to export")
+        return None
 
-        doc = ezdxf.new("R2010")
+    try:
+        doc = ezdxf.new('R2010')
         msp = doc.modelspace()
 
-        # Debug print - document created
-        st.write("DXF document created successfully")
+        # Add each line
+        for _, row in st.session_state.lines.iterrows():
+            start = (row['start_x'], row['start_y'])
+            end = (row['end_x'], row['end_y'])
+            msp.add_line(start, end)
 
-        line_count = 0
-        # Add lines to modelspace
-        for idx, row in st.session_state.lines.iterrows():
-            try:
-                # Convert and validate coordinates
-                start_x = float(row['start_x'])
-                start_y = float(row['start_y'])
-                end_x = float(row['end_x'])
-                end_y = float(row['end_y'])
-
-                start_point = (start_x, start_y, 0.0)
-                end_point = (end_x, end_y, 0.0)
-
-                # Debug print coordinates
-                st.write(f"Adding line {idx}: {start_point} to {end_point}")
-
-                # Add line to modelspace
-                msp.add_line(start_point, end_point)
-                line_count += 1
-
-            except ValueError as ve:
-                st.error(f"Invalid coordinates in line {idx}: {str(ve)}")
-                return None
-
-        st.write(f"Successfully added {line_count} lines to DXF")
-
-        try:
-            # Create BytesIO buffer and save DXF
-            buffer = BytesIO()
-            st.write("Saving DXF to buffer...")
-
-            # Save document to buffer using explicit binary mode
-            doc.write(buffer)
-            buffer.seek(0)
-            dxf_data = buffer.getvalue()
-            buffer.close()
-
-            # Verify data
-            if dxf_data and len(dxf_data) > 0:
-                st.write(f"DXF file created successfully. Size: {len(dxf_data)} bytes")
-                return dxf_data
-            else:
-                st.error("Failed to create DXF data: Buffer is empty")
-                return None
-
-        except Exception as save_error:
-            st.error(f"Error saving DXF to buffer: {str(save_error)}")
-            return None
+        # Save to binary stream
+        binary_stream = BytesIO()
+        doc.saveas(binary_stream)
+        binary_stream.seek(0)
+        return binary_stream.getvalue()
 
     except Exception as e:
-        st.error(f"Failed to create DXF file: {str(e)}")
+        st.error(f"DXF creation error: {str(e)}")
         return None
 
 def initialize_session_state():
@@ -257,62 +218,22 @@ def create_rectangle(start_point, side_length):
     return pd.DataFrame(lines)
 
 def create_test_dxf():
-    """Create a test DXF file with simple text content."""
+    """Create a test DXF file with simple content."""
     try:
-        # Debug print - starting DXF creation
-        st.write("Starting DXF creation...")
-
-        doc = ezdxf.new("R2010")
+        doc = ezdxf.new('R2010')
         msp = doc.modelspace()
 
-        # Debug print - document created
-        st.write("DXF document created successfully")
+        # Add a simple line
+        msp.add_line((0, 0), (10, 10))
 
-        try:
-            # Add text
-            msp.add_text(
-                "Test DXF File",
-                dxfattribs={
-                    'height': 1.0,
-                    'color': 1,
-                    'layer': 'TEXT',
-                    'insert': (0, 0)  # Use 'insert' attribute for position
-                }
-            )
-
-            # Add some basic geometric entities
-            msp.add_line((0, 0, 0), (5, 5, 0), dxfattribs={'color': 1, 'layer': 'LINES'})
-            msp.add_circle((2.5, 2.5, 0), radius=2.0, dxfattribs={'color': 2, 'layer': 'CIRCLES'})
-
-        except Exception as entity_error:
-            st.error(f"Error adding entities to DXF: {str(entity_error)}")
-            return None
-
-        try:
-            # Create BytesIO buffer and save DXF
-            buffer = BytesIO()
-            st.write("Saving DXF to buffer...")
-
-            # Save document to buffer using explicit binary mode
-            doc.write(buffer)
-            buffer.seek(0)
-            dxf_data = buffer.getvalue()
-            buffer.close()
-
-            # Verify data
-            if dxf_data and len(dxf_data) > 0:
-                st.write(f"DXF file created successfully. Size: {len(dxf_data)} bytes")
-                return dxf_data
-            else:
-                st.error("Failed to create DXF data: Buffer is empty")
-                return None
-
-        except Exception as save_error:
-            st.error(f"Error saving DXF to buffer: {str(save_error)}")
-            return None
+        # Save to binary stream
+        binary_stream = BytesIO()
+        doc.saveas(binary_stream)
+        binary_stream.seek(0)
+        return binary_stream.getvalue()
 
     except Exception as e:
-        st.error(f"Failed to create DXF file: {str(e)}")
+        st.error(f"DXF creation error: {str(e)}")
         return None
 
 def main():
