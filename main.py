@@ -74,14 +74,14 @@ def create_dxf():
 
         # Add each line
         for idx, row in st.session_state.lines.iterrows():
-            start = (row['start_x'], row['start_y'])
-            end = (row['end_x'], row['end_y'])
+            start = (float(row['start_x']), float(row['start_y']))
+            end = (float(row['end_x']), float(row['end_y']))
 
             # Debug: Show coordinates being added
             st.write(f"Adding line {idx+1}: ({start[0]}, {start[1]}) to ({end[0]}, {end[1]})")
 
             try:
-                msp.add_line(start, end, dxfattribs={"layer": "Lines"})
+                msp.add_line((start[0], start[1]), (end[0], end[1]), dxfattribs={"layer": "Lines"})
             except Exception as line_error:
                 st.error(f"Error adding line {idx+1}: {str(line_error)}")
                 return None
@@ -118,12 +118,12 @@ def create_test_dxf():
         msp = doc.modelspace()
 
         # Add test line with only X,Y coordinates
-        start = (0, 0)
-        end = (10, 10)
-        st.write(f"Adding test line: ({start[0]}, {start[1]}) to ({end[0]}, {end[1]})")
+        start_x, start_y = 0, 0
+        end_x, end_y = 10, 10
+        st.write(f"Adding test line: ({start_x}, {start_y}) to ({end_x}, {end_y})")
 
         try:
-            msp.add_line(start, end, dxfattribs={"layer": "TestLayer"})
+            msp.add_line((start_x, start_y), (end_x, end_y), dxfattribs={"layer": "TestLayer"})
         except Exception as line_error:
             st.error(f"Error adding test line: {str(line_error)}")
             return None
