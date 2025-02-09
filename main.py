@@ -86,24 +86,14 @@ def create_dxf():
                 st.error(f"Error adding line {idx+1}: {str(line_error)}")
                 return None
 
-        # Save to binary stream
-        try:
-            binary_stream = BytesIO()
-            doc.saveas(binary_stream)
-            binary_stream.seek(0)
-            dxf_data = binary_stream.getvalue()
-            binary_stream.close()
+        # Save the file
+        filename = "line_drawing.dxf"
+        doc.saveas(filename)
+        st.write(f"DXF file saved as: {filename}")
 
-            if not dxf_data:
-                st.error("Generated DXF data is empty")
-                return None
-
-            st.write(f"DXF file created successfully with {len(dxf_data)} bytes")
-            return dxf_data
-
-        except Exception as save_error:
-            st.error(f"Error saving DXF: {str(save_error)}")
-            return None
+        # Read the file back for download
+        with open(filename, 'rb') as f:
+            return f.read()
 
     except Exception as e:
         st.error(f"DXF creation error: {str(e)}")
@@ -128,24 +118,14 @@ def create_test_dxf():
             st.error(f"Error adding test line: {str(line_error)}")
             return None
 
-        # Save to binary stream
-        try:
-            binary_stream = BytesIO()
-            doc.saveas(binary_stream)
-            binary_stream.seek(0)
-            dxf_data = binary_stream.getvalue()
-            binary_stream.close()
+        # Save the file
+        filename = "test.dxf"
+        doc.saveas(filename)
+        st.write(f"Test DXF file saved as: {filename}")
 
-            if not dxf_data:
-                st.error("Generated test DXF data is empty")
-                return None
-
-            st.write(f"Test DXF file created successfully with {len(dxf_data)} bytes")
-            return dxf_data
-
-        except Exception as save_error:
-            st.error(f"Error saving test DXF: {str(save_error)}")
-            return None
+        # Read the file back for download
+        with open(filename, 'rb') as f:
+            return f.read()
 
     except Exception as e:
         st.error(f"Test DXF creation error: {str(e)}")
