@@ -64,19 +64,38 @@ def create_dxf():
         doc = ezdxf.new("R2010")
         msp = doc.modelspace()
 
-        # Add lines to the DXF
-        for _, row in st.session_state.lines.iterrows():
-            # Convert coordinates to float and create line
-            start_point = (float(row['start_x']), float(row['start_y']), 0)
-            end_point = (float(row['end_x']), float(row['end_y']), 0)
-            msp.add_line(start_point, end_point)
+        # Debug print
+        st.write("Creating DXF with following lines:")
+        for idx, row in st.session_state.lines.iterrows():
+            # Validate and convert coordinates
+            try:
+                start_x = float(row['start_x'])
+                start_y = float(row['start_y'])
+                end_x = float(row['end_x'])
+                end_y = float(row['end_y'])
+
+                start_point = (start_x, start_y, 0.0)
+                end_point = (end_x, end_y, 0.0)
+
+                # Debug print coordinates
+                st.write(f"Line {idx}: {start_point} to {end_point}")
+
+                # Add line to modelspace
+                msp.add_line(start_point, end_point)
+            except ValueError as ve:
+                st.error(f"Invalid coordinates in line {idx}: {str(ve)}")
+                return None
 
         # Create BytesIO buffer to write DXF data
         buffer = BytesIO()
-        doc.save(buffer)  # Save to binary buffer
+        doc.saveas(buffer)  # Changed to saveas() method
         buffer.seek(0)
         dxf_data = buffer.getvalue()  # Get binary data
         buffer.close()
+
+        # Debug print
+        st.write(f"DXF data size: {len(dxf_data)} bytes")
+
         return dxf_data
     except Exception as e:
         st.error(f"Failed to create DXF file: {str(e)}")
