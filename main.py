@@ -276,7 +276,7 @@ def create_test_dxf():
             buffer = BytesIO()
             st.write("Saving test DXF to buffer...")
 
-            # Write document to buffer
+            # Write document to buffer using write() method
             doc.write(buffer)
             buffer.seek(0)
             dxf_data = buffer.getvalue()
