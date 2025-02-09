@@ -65,23 +65,89 @@ def create_dxf():
         return None
 
     try:
+        # Create new document
         doc = ezdxf.new('R2010')
         msp = doc.modelspace()
 
+        # Debug: Show how many lines we're processing
+        st.write(f"Processing {len(st.session_state.lines)} lines for DXF export")
+
         # Add each line
-        for _, row in st.session_state.lines.iterrows():
+        for idx, row in st.session_state.lines.iterrows():
             start = (row['start_x'], row['start_y'])
             end = (row['end_x'], row['end_y'])
-            msp.add_line(start, end)
+
+            # Debug: Show coordinates being added
+            st.write(f"Adding line {idx+1}: ({start[0]}, {start[1]}) to ({end[0]}, {end[1]})")
+
+            try:
+                msp.add_line(start, end)
+            except Exception as line_error:
+                st.error(f"Error adding line {idx+1}: {str(line_error)}")
+                return None
 
         # Save to binary stream
-        binary_stream = BytesIO()
-        doc.saveas(binary_stream)
-        binary_stream.seek(0)
-        return binary_stream.getvalue()
+        try:
+            binary_stream = BytesIO()
+            doc.saveas(binary_stream)
+            binary_stream.seek(0)
+            dxf_data = binary_stream.getvalue()
+            binary_stream.close()
+
+            if not dxf_data:
+                st.error("Generated DXF data is empty")
+                return None
+
+            st.write(f"DXF file created successfully with {len(dxf_data)} bytes")
+            return dxf_data
+
+        except Exception as save_error:
+            st.error(f"Error saving DXF: {str(save_error)}")
+            return None
 
     except Exception as e:
         st.error(f"DXF creation error: {str(e)}")
+        return None
+
+def create_test_dxf():
+    """Create a test DXF file with simple content."""
+    try:
+        st.write("Creating test DXF file...")
+        doc = ezdxf.new('R2010')
+        msp = doc.modelspace()
+
+        # Add test line with only X,Y coordinates
+        start = (0, 0)
+        end = (10, 10)
+        st.write(f"Adding test line: ({start[0]}, {start[1]}) to ({end[0]}, {end[1]})")
+
+        try:
+            msp.add_line(start, end)
+        except Exception as line_error:
+            st.error(f"Error adding test line: {str(line_error)}")
+            return None
+
+        # Save to binary stream
+        try:
+            binary_stream = BytesIO()
+            doc.saveas(binary_stream)
+            binary_stream.seek(0)
+            dxf_data = binary_stream.getvalue()
+            binary_stream.close()
+
+            if not dxf_data:
+                st.error("Generated test DXF data is empty")
+                return None
+
+            st.write(f"Test DXF file created successfully with {len(dxf_data)} bytes")
+            return dxf_data
+
+        except Exception as save_error:
+            st.error(f"Error saving test DXF: {str(save_error)}")
+            return None
+
+    except Exception as e:
+        st.error(f"Test DXF creation error: {str(e)}")
         return None
 
 def initialize_session_state():
@@ -216,64 +282,6 @@ def create_rectangle(start_point, side_length):
     })
 
     return pd.DataFrame(lines)
-
-def create_test_dxf():
-    """Create a test DXF file with simple content."""
-    try:
-        st.write("Starting DXF creation...")
-
-        # Create new document
-        doc = ezdxf.new('R2010')
-        if doc is None:
-            st.error("Failed to create DXF document")
-            return None
-
-        st.write("DXF document created successfully")
-
-        # Get modelspace
-        msp = doc.modelspace()
-        if msp is None:
-            st.error("Failed to get modelspace")
-            return None
-
-        # Add test entities
-        try:
-            msp.add_line((0, 0), (10, 10))
-            st.write("Added test line to DXF")
-        except Exception as entity_error:
-            st.error(f"Failed to add entities: {str(entity_error)}")
-            return None
-
-        # Save to binary stream
-        try:
-            binary_stream = BytesIO()
-            doc.saveas(binary_stream)
-            binary_stream.seek(0)
-
-            # Get binary data
-            dxf_data = binary_stream.getvalue()
-            binary_stream.close()
-
-            # Verify data
-            if not dxf_data:
-                st.error("DXF data is None")
-                return None
-
-            data_size = len(dxf_data)
-            if data_size == 0:
-                st.error("DXF data is empty")
-                return None
-
-            st.write(f"DXF file created successfully: {data_size} bytes")
-            return dxf_data
-
-        except Exception as save_error:
-            st.error(f"Failed to save DXF: {str(save_error)}")
-            return None
-
-    except Exception as e:
-        st.error(f"DXF creation error: {str(e)}")
-        return None
 
 def main():
     st.title("Line Drawing Application")
