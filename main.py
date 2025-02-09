@@ -262,31 +262,51 @@ def create_test_dxf():
         # Debug print
         st.write("Creating test DXF file...")
 
+        # Create new DXF document with specific DXF version
         doc = ezdxf.new("R2010")
         msp = doc.modelspace()
 
-        # Add a simple text entity
-        msp.add_text("Test DXF File", dxfattribs={'height': 1.0, 'color': 1})
+        # Add multiple test entities
+        try:
+            # Add text
+            msp.add_text(
+                "Test DXF File",
+                dxfattribs={
+                    'height': 1.0,
+                    'color': 1,
+                    'layer': 'TEXT'
+                }
+            ).set_pos((0, 0))
 
-        # Add a simple line
-        msp.add_line((0, 0, 0), (5, 5, 0))
+            # Add some basic geometric entities
+            msp.add_line((0, 0, 0), (5, 5, 0), dxfattribs={'color': 1, 'layer': 'LINES'})
+            msp.add_circle((2.5, 2.5, 0), radius=2.0, dxfattribs={'color': 2, 'layer': 'CIRCLES'})
+
+        except Exception as entity_error:
+            st.error(f"Error adding entities to DXF: {str(entity_error)}")
+            return None
 
         try:
-            # Create BytesIO buffer and save DXF
+            # Create BytesIO buffer
             buffer = BytesIO()
             st.write("Saving test DXF to buffer...")
 
-            # Write document to buffer using write() method
+            # Encode document to binary format
             doc.write(buffer)
+
+            # Reset buffer position and get binary data
             buffer.seek(0)
             dxf_data = buffer.getvalue()
+
+            # Clean up
             buffer.close()
 
-            if dxf_data and len(dxf_data) > 0:
+            # Verify binary data
+            if dxf_data and isinstance(dxf_data, bytes) and len(dxf_data) > 0:
                 st.write(f"Test DXF file created successfully. Size: {len(dxf_data)} bytes")
                 return dxf_data
             else:
-                st.error("Failed to create test DXF data: Buffer is empty")
+                st.error("Failed to create test DXF data: Invalid or empty binary data")
                 return None
 
         except Exception as save_error:
