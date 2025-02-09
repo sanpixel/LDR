@@ -259,14 +259,15 @@ def create_rectangle(start_point, side_length):
 def create_test_dxf():
     """Create a test DXF file with simple text content."""
     try:
-        # Debug print
-        st.write("Creating test DXF file...")
+        # Debug print - starting DXF creation
+        st.write("Starting DXF creation...")
 
-        # Create new DXF document with specific DXF version
         doc = ezdxf.new("R2010")
         msp = doc.modelspace()
 
-        # Add multiple test entities
+        # Debug print - document created
+        st.write("DXF document created successfully")
+
         try:
             # Add text
             msp.add_text(
@@ -274,9 +275,10 @@ def create_test_dxf():
                 dxfattribs={
                     'height': 1.0,
                     'color': 1,
-                    'layer': 'TEXT'
+                    'layer': 'TEXT',
+                    'insert': (0, 0)  # Use 'insert' attribute for position
                 }
-            ).set_pos((0, 0))
+            )
 
             # Add some basic geometric entities
             msp.add_line((0, 0, 0), (5, 5, 0), dxfattribs={'color': 1, 'layer': 'LINES'})
@@ -287,34 +289,30 @@ def create_test_dxf():
             return None
 
         try:
-            # Create BytesIO buffer
+            # Create BytesIO buffer and save DXF
             buffer = BytesIO()
-            st.write("Saving test DXF to buffer...")
+            st.write("Saving DXF to buffer...")
 
-            # Encode document to binary format
+            # Save document to buffer using explicit binary mode
             doc.write(buffer)
-
-            # Reset buffer position and get binary data
             buffer.seek(0)
             dxf_data = buffer.getvalue()
-
-            # Clean up
             buffer.close()
 
-            # Verify binary data
-            if dxf_data and isinstance(dxf_data, bytes) and len(dxf_data) > 0:
-                st.write(f"Test DXF file created successfully. Size: {len(dxf_data)} bytes")
+            # Verify data
+            if dxf_data and len(dxf_data) > 0:
+                st.write(f"DXF file created successfully. Size: {len(dxf_data)} bytes")
                 return dxf_data
             else:
-                st.error("Failed to create test DXF data: Invalid or empty binary data")
+                st.error("Failed to create DXF data: Buffer is empty")
                 return None
 
         except Exception as save_error:
-            st.error(f"Error saving test DXF to buffer: {str(save_error)}")
+            st.error(f"Error saving DXF to buffer: {str(save_error)}")
             return None
 
     except Exception as e:
-        st.error(f"Failed to create test DXF file: {str(e)}")
+        st.error(f"Failed to create DXF file: {str(e)}")
         return None
 
 def main():
