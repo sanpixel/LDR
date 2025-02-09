@@ -31,7 +31,7 @@ def draw_lines():
             y=[row['start_y'], row['end_y']],
             mode='lines+text',
             name=f'Line {idx+1}',
-            text=[f'Line {idx+1}<br>Bearing: {row["bearing"]}°<br>Distance: {row["distance"]}'],
+            text=[f'Line {idx+1}: {row["bearing"]}°, {row["distance"]} units'],
             textposition='top center',
             line=dict(width=2)
         ))
@@ -57,13 +57,14 @@ def draw_lines():
 
     # Update layout
     fig.update_layout(
-        showlegend=True,
-        title='Connected Lines Visualization',
+        showlegend=False,
+        title='Line Drawing',
         xaxis_title='X Coordinate',
         yaxis_title='Y Coordinate',
         xaxis=dict(zeroline=True),
-        yaxis=dict(zeroline=True),
-        aspectmode='equal'
+        yaxis=dict(zeroline=True, scaleanchor="x", scaleratio=1),
+        width=800,
+        height=600
     )
 
     return fig
@@ -72,59 +73,54 @@ def main():
     st.title("Line Drawing Application")
     initialize_session_state()
 
-    # Create two columns for input and visualization
-    col1, col2 = st.columns([1, 2])
+    # Input fields
+    st.subheader("Add New Line")
+    bearing = st.number_input("Bearing (degrees)", 
+                            min_value=0.0, 
+                            max_value=360.0, 
+                            value=0.0,
+                            step=1.0)
 
-    with col1:
-        st.subheader("Input Parameters")
-        
-        # Input fields
-        bearing = st.number_input("Bearing (degrees)", 
-                                min_value=0.0, 
-                                max_value=360.0, 
-                                value=0.0,
-                                step=1.0)
-        
-        distance = st.number_input("Distance", 
-                                 min_value=0.0, 
-                                 value=1.0,
-                                 step=0.1)
+    distance = st.number_input("Distance", 
+                             min_value=0.0, 
+                             value=1.0,
+                             step=0.1)
 
-        # Add line button
-        if st.button("Add Line"):
-            if distance > 0:
-                # Calculate new endpoint
-                end_point = calculate_endpoint(st.session_state.current_point, bearing, distance)
-                
-                # Add new line to DataFrame
-                new_line = pd.DataFrame({
-                    'start_x': [st.session_state.current_point[0]],
-                    'start_y': [st.session_state.current_point[1]],
-                    'end_x': [end_point[0]],
-                    'end_y': [end_point[1]],
-                    'bearing': [bearing],
-                    'distance': [distance]
-                })
-                st.session_state.lines = pd.concat([st.session_state.lines, new_line], ignore_index=True)
-                
-                # Update current point
-                st.session_state.current_point = end_point
-            else:
-                st.error("Distance must be greater than 0")
+    # Add line button
+    if st.button("Add Line"):
+        if distance > 0:
+            # Calculate new endpoint
+            end_point = calculate_endpoint(st.session_state.current_point, bearing, distance)
 
-        # Clear all button
-        if st.button("Clear All"):
-            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'distance'])
-            st.session_state.current_point = [0, 0]
+            # Add new line to DataFrame
+            new_line = pd.DataFrame({
+                'start_x': [st.session_state.current_point[0]],
+                'start_y': [st.session_state.current_point[1]],
+                'end_x': [end_point[0]],
+                'end_y': [end_point[1]],
+                'bearing': [bearing],
+                'distance': [distance]
+            })
+            st.session_state.lines = pd.concat([st.session_state.lines, new_line], ignore_index=True)
 
-        # Display line data
+            # Update current point
+            st.session_state.current_point = end_point
+        else:
+            st.error("Distance must be greater than 0")
+
+    # Clear all button
+    if st.button("Clear All"):
+        st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'distance'])
+        st.session_state.current_point = [0, 0]
+
+    # Display the plot
+    fig = draw_lines()
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Display line data
+    if not st.session_state.lines.empty:
         st.subheader("Line Data")
         st.dataframe(st.session_state.lines[['bearing', 'distance']])
-
-    with col2:
-        # Display the plot
-        fig = draw_lines()
-        st.plotly_chart(fig, use_container_width=True)
 
 if __name__ == "__main__":
     main()
