@@ -144,6 +144,44 @@ def draw_lines():
 
     return fig
 
+def create_rectangle(start_point, side_length):
+    """Create a rectangle by drawing 4 lines that close back to the start point."""
+    lines = []
+    current = start_point
+
+    # Define the four directions for a rectangle
+    directions = [
+        ("North", 0, 0, 0, "East"),    # North
+        ("North", 90, 0, 0, "East"),   # East
+        ("South", 0, 0, 0, "East"),    # South
+        ("North", 90, 0, 0, "West")    # West
+    ]
+
+    for cardinal_ns, deg, min, sec, cardinal_ew in directions:
+        # Convert DMS to decimal
+        bearing = dms_to_decimal(deg, min, sec, cardinal_ns, cardinal_ew)
+
+        # Calculate endpoint
+        end_point = calculate_endpoint(current, bearing, side_length)
+
+        # Create bearing description
+        bearing_desc = f"{cardinal_ns} {deg}° {min}' {sec}\" {cardinal_ew}"
+
+        # Add line
+        lines.append({
+            'start_x': current[0],
+            'start_y': current[1],
+            'end_x': end_point[0],
+            'end_y': end_point[1],
+            'bearing': bearing,
+            'bearing_desc': bearing_desc,
+            'distance': side_length
+        })
+
+        current = end_point
+
+    return pd.DataFrame(lines)
+
 def main():
     st.title("Line Drawing Application")
     initialize_session_state()
@@ -167,57 +205,67 @@ def main():
 
     distance = st.number_input("Distance", min_value=0.0, value=1.0, step=0.1)
 
+    # Create a row for buttons
+    col1, col2, col3 = st.columns(3)
+
     # Add line button
-    if st.button("Add Line"):
-        if distance > 0:
-            # Convert DMS to decimal degrees
-            bearing = dms_to_decimal(degrees, minutes, seconds, cardinal_ns, cardinal_ew)
+    with col1:
+        if st.button("Add Line"):
+            if distance > 0:
+                # Convert DMS to decimal degrees
+                bearing = dms_to_decimal(degrees, minutes, seconds, cardinal_ns, cardinal_ew)
 
-            # Calculate new endpoint
-            end_point = calculate_endpoint(st.session_state.current_point, bearing, distance)
+                # Calculate new endpoint
+                end_point = calculate_endpoint(st.session_state.current_point, bearing, distance)
 
-            # Create bearing description
-            bearing_desc = f"{cardinal_ns} {degrees}° {minutes}' {seconds}\" {cardinal_ew}"
+                # Create bearing description
+                bearing_desc = f"{cardinal_ns} {degrees}° {minutes}' {seconds}\" {cardinal_ew}"
 
-            # Add new line to DataFrame
-            new_line = pd.DataFrame({
-                'start_x': [st.session_state.current_point[0]],
-                'start_y': [st.session_state.current_point[1]],
-                'end_x': [end_point[0]],
-                'end_y': [end_point[1]],
-                'bearing': [bearing],
-                'bearing_desc': [bearing_desc],
-                'distance': [distance]
-            })
-            st.session_state.lines = pd.concat([st.session_state.lines, new_line], ignore_index=True)
+                # Add new line to DataFrame
+                new_line = pd.DataFrame({
+                    'start_x': [st.session_state.current_point[0]],
+                    'start_y': [st.session_state.current_point[1]],
+                    'end_x': [end_point[0]],
+                    'end_y': [end_point[1]],
+                    'bearing': [bearing],
+                    'bearing_desc': [bearing_desc],
+                    'distance': [distance]
+                })
+                st.session_state.lines = pd.concat([st.session_state.lines, new_line], ignore_index=True)
 
-            # Update current point
-            st.session_state.current_point = end_point
-        else:
-            st.error("Distance must be greater than 0")
+                # Update current point
+                st.session_state.current_point = end_point
+            else:
+                st.error("Distance must be greater than 0")
 
-    # Create a row for action buttons
-    col1, col2 = st.columns(2)
+    # Add Rectangle button
+    with col2:
+        if st.button("Add Rectangle"):
+            if distance > 0:
+                rectangle_lines = create_rectangle(st.session_state.current_point, distance)
+                st.session_state.lines = pd.concat([st.session_state.lines, rectangle_lines], ignore_index=True)
+                st.session_state.current_point = [st.session_state.current_point[0], st.session_state.current_point[1]]  # Back to start
+            else:
+                st.error("Distance must be greater than 0")
 
     # Clear all button
-    with col1:
+    with col3:
         if st.button("Clear All"):
             st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
             st.session_state.current_point = [0, 0]
 
     # Export DXF button
-    with col2:
-        if st.button("Export DXF"):
-            if not st.session_state.lines.empty:
-                dxf_buffer = create_dxf()
-                st.download_button(
-                    label="Download DXF",
-                    data=dxf_buffer,
-                    file_name="line_drawing.dxf",
-                    mime="application/dxf"
-                )
-            else:
-                st.warning("Add some lines before exporting")
+    if st.button("Export DXF"):
+        if not st.session_state.lines.empty:
+            dxf_buffer = create_dxf()
+            st.download_button(
+                label="Download DXF",
+                data=dxf_buffer,
+                file_name="line_drawing.dxf",
+                mime="application/dxf"
+            )
+        else:
+            st.warning("Add some lines before exporting")
 
     # Display the plot
     fig = draw_lines()
