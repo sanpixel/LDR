@@ -65,8 +65,8 @@ def create_dxf():
         return None
 
     try:
-        # Create new document
-        doc = ezdxf.new('R2010')
+        # Create new document with setup=True
+        doc = ezdxf.new(setup=True)
         msp = doc.modelspace()
 
         # Debug: Show how many lines we're processing
@@ -113,7 +113,8 @@ def create_test_dxf():
     """Create a test DXF file with simple content."""
     try:
         st.write("Creating test DXF file...")
-        doc = ezdxf.new('R2010')
+        # Create new document with setup=True
+        doc = ezdxf.new(setup=True)
         msp = doc.modelspace()
 
         # Add test line with only X,Y coordinates
