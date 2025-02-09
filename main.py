@@ -214,31 +214,32 @@ def main():
     st.title("Line Drawing Application")
     initialize_session_state()
 
-    # Input fields
+    # Input fields in a single row
     st.subheader("Add New Line")
 
-    # Create three columns for the bearing input
-    col1, col2, col3 = st.columns(3)
+    # Create columns for all inputs in a single row
+    col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
 
     with col1:
-        cardinal_ns = st.selectbox("Cardinal Direction", ["North", "South"], key="cardinal_ns")
+        cardinal_ns = st.selectbox("N/S", ["North", "South"], key="cardinal_ns")
 
     with col2:
-        degrees = st.number_input("Degrees", min_value=0, max_value=90, value=0, step=1)
-        minutes = st.number_input("Minutes", min_value=0, max_value=59, value=0, step=1)
-        seconds = st.number_input("Seconds", min_value=0, max_value=59, value=0, step=1)
+        degrees = st.number_input("Deg", min_value=0, max_value=90, value=0, step=1, format="%d")
 
     with col3:
-        cardinal_ew = st.selectbox("Cardinal Direction", ["East", "West"], key="cardinal_ew")
+        minutes = st.number_input("Min", min_value=0, max_value=59, value=0, format="%d")
 
-    distance = st.number_input("Distance", min_value=0.0, value=1.0, step=0.1)
+    with col4:
+        seconds = st.number_input("Sec", min_value=0, max_value=59, value=0, format="%d")
 
-    # Create a row for buttons
-    col1, col2, col3 = st.columns(3)
+    with col5:
+        cardinal_ew = st.selectbox("E/W", ["East", "West"], key="cardinal_ew")
 
-    # Add line button
-    with col1:
-        if st.button("Add Line"):
+    with col6:
+        distance = st.number_input("Distance", min_value=0.0, value=1.0, format="%.1f")
+
+    with col7:
+        if st.button("Add Line", use_container_width=True):
             if distance > 0:
                 # Convert DMS to decimal degrees
                 bearing = dms_to_decimal(degrees, minutes, seconds, cardinal_ns, cardinal_ew)
@@ -266,34 +267,41 @@ def main():
             else:
                 st.error("Distance must be greater than 0")
 
+    # Add a separator
+    st.markdown("---")
+
+    # Create a row for additional control buttons
+    col1, col2, col3 = st.columns(3)
+
     # Add Rectangle button
-    with col2:
-        if st.button("Add Rectangle"):
+    with col1:
+        if st.button("Add Rectangle", use_container_width=True):
             if distance > 0:
                 rectangle_lines = create_rectangle(st.session_state.current_point, distance)
                 st.session_state.lines = pd.concat([st.session_state.lines, rectangle_lines], ignore_index=True)
-                st.session_state.current_point = [st.session_state.current_point[0], st.session_state.current_point[1]]  # Back to start
+                st.session_state.current_point = [st.session_state.current_point[0], st.session_state.current_point[1]]
             else:
                 st.error("Distance must be greater than 0")
 
     # Clear all button
-    with col3:
-        if st.button("Clear All"):
+    with col2:
+        if st.button("Clear All", use_container_width=True):
             st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
             st.session_state.current_point = [0, 0]
 
     # Export DXF button
-    if st.button("Export DXF"):
-        if not st.session_state.lines.empty:
-            dxf_buffer = create_dxf()
-            st.download_button(
-                label="Download DXF",
-                data=dxf_buffer,
-                file_name="line_drawing.dxf",
-                mime="application/dxf"
-            )
-        else:
-            st.warning("Add some lines before exporting")
+    with col3:
+        if st.button("Export DXF", use_container_width=True):
+            if not st.session_state.lines.empty:
+                dxf_buffer = create_dxf()
+                st.download_button(
+                    label="Download DXF",
+                    data=dxf_buffer,
+                    file_name="line_drawing.dxf",
+                    mime="application/dxf"
+                )
+            else:
+                st.warning("Add some lines before exporting")
 
     # Display the plot
     fig = draw_lines()
