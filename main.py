@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from math import radians
+import ezdxf
+from io import BytesIO
 
 def dms_to_decimal(degrees, minutes, seconds, cardinal_ns, cardinal_ew):
     """Convert DMS (Degrees, Minutes, Seconds) to decimal degrees."""
@@ -55,6 +57,36 @@ def calculate_endpoint(start_point, bearing, distance):
     end_x = start_point[0] + dx
     end_y = start_point[1] + dy
     return [end_x, end_y]
+
+def create_dxf():
+    """Create a DXF file from the current lines."""
+    doc = ezdxf.new("R2010")
+    msp = doc.modelspace()
+
+    # Add lines to the DXF
+    for _, row in st.session_state.lines.iterrows():
+        # Add the line
+        msp.add_line(
+            (row['start_x'], row['start_y'], 0),
+            (row['end_x'], row['end_y'], 0)
+        )
+
+        # Add text for bearing and distance
+        mid_x = (row['start_x'] + row['end_x']) / 2
+        mid_y = (row['start_y'] + row['end_y']) / 2
+        msp.add_text(
+            f"{row['bearing_desc']}\nDist: {row['distance']:.2f}",
+            dxfattribs={
+                'height': min(row['distance'] * 0.1, 1.0),  # Scale text size with line length
+                'rotation': 0
+            }
+        ).set_pos((mid_x, mid_y))
+
+    # Save to bytes buffer
+    buffer = BytesIO()
+    doc.write(buffer)
+    buffer.seek(0)
+    return buffer
 
 def initialize_session_state():
     """Initialize session state variables if they don't exist."""
@@ -164,10 +196,28 @@ def main():
         else:
             st.error("Distance must be greater than 0")
 
+    # Create a row for action buttons
+    col1, col2 = st.columns(2)
+
     # Clear all button
-    if st.button("Clear All"):
-        st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
-        st.session_state.current_point = [0, 0]
+    with col1:
+        if st.button("Clear All"):
+            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
+            st.session_state.current_point = [0, 0]
+
+    # Export DXF button
+    with col2:
+        if st.button("Export DXF"):
+            if not st.session_state.lines.empty:
+                dxf_buffer = create_dxf()
+                st.download_button(
+                    label="Download DXF",
+                    data=dxf_buffer,
+                    file_name="line_drawing.dxf",
+                    mime="application/dxf"
+                )
+            else:
+                st.warning("Add some lines before exporting")
 
     # Display the plot
     fig = draw_lines()
