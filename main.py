@@ -268,41 +268,89 @@ def main():
     st.title("Line Drawing Application")
     initialize_session_state()
 
-    # Input fields in a single row
-    st.subheader("Add New Line")
+    # Add line inputs in a grid layout
+    st.subheader("Draw Multiple Lines")
 
-    # Create columns for all inputs in a single row
-    col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
+    # Create a container for all line inputs
+    with st.container():
+        for line_num in range(4):
+            st.write(f"Line {line_num + 1}")
+            col1, col2, col3, col4, col5, col6 = st.columns(6)
 
-    with col1:
-        cardinal_ns = st.selectbox("N/S", ["North", "South"], key="cardinal_ns")
+            with col1:
+                cardinal_ns = st.selectbox(
+                    "N/S",
+                    ["North", "South"],
+                    key=f"cardinal_ns_{line_num}"
+                )
 
-    with col2:
-        degrees = st.number_input("Deg", min_value=0, max_value=90, value=0, step=1, format="%d")
+            with col2:
+                degrees = st.number_input(
+                    "Deg",
+                    min_value=0,
+                    max_value=90,
+                    value=0,
+                    step=1,
+                    format="%d",
+                    key=f"degrees_{line_num}"
+                )
 
-    with col3:
-        minutes = st.number_input("Min", min_value=0, max_value=59, value=0, format="%d")
+            with col3:
+                minutes = st.number_input(
+                    "Min",
+                    min_value=0,
+                    max_value=59,
+                    value=0,
+                    format="%d",
+                    key=f"minutes_{line_num}"
+                )
 
-    with col4:
-        seconds = st.number_input("Sec", min_value=0, max_value=59, value=0, format="%d")
+            with col4:
+                seconds = st.number_input(
+                    "Sec",
+                    min_value=0,
+                    max_value=59,
+                    value=0,
+                    format="%d",
+                    key=f"seconds_{line_num}"
+                )
 
-    with col5:
-        cardinal_ew = st.selectbox("E/W", ["East", "West"], key="cardinal_ew")
+            with col5:
+                cardinal_ew = st.selectbox(
+                    "E/W",
+                    ["East", "West"],
+                    key=f"cardinal_ew_{line_num}"
+                )
 
-    with col6:
-        distance = st.number_input("Distance", min_value=0.0, value=1.0, format="%.1f")
+            with col6:
+                distance = st.number_input(
+                    "Distance",
+                    min_value=0.0,
+                    value=1.0,
+                    format="%.1f",
+                    key=f"distance_{line_num}"
+                )
 
-    with col7:
-        if st.button("Add Line", use_container_width=True):
+    # Draw Lines button
+    if st.button("Draw Lines", use_container_width=True):
+        for line_num in range(4):
+            # Only process lines with non-zero distance
+            distance = st.session_state[f"distance_{line_num}"]
             if distance > 0:
                 # Convert DMS to decimal degrees
-                bearing = dms_to_decimal(degrees, minutes, seconds, cardinal_ns, cardinal_ew)
+                bearing = dms_to_decimal(
+                    st.session_state[f"degrees_{line_num}"],
+                    st.session_state[f"minutes_{line_num}"],
+                    st.session_state[f"seconds_{line_num}"],
+                    st.session_state[f"cardinal_ns_{line_num}"],
+                    st.session_state[f"cardinal_ew_{line_num}"]
+                )
 
                 # Calculate new endpoint
                 end_point = calculate_endpoint(st.session_state.current_point, bearing, distance)
 
                 # Create bearing description
-                bearing_desc = f"{cardinal_ns} {degrees}° {minutes}' {seconds}\" {cardinal_ew}"
+                bearing_desc = f"{st.session_state[f'cardinal_ns_{line_num}']} {st.session_state[f'degrees_{line_num}']}° {st.session_state[f'minutes_{line_num}']}' {st.session_state[f'seconds_{line_num}']}\" {st.session_state[f'cardinal_ew_{line_num}']}"
 
                 # Add new line to DataFrame
                 new_line = pd.DataFrame({
@@ -318,8 +366,6 @@ def main():
 
                 # Update current point
                 st.session_state.current_point = end_point
-            else:
-                st.error("Distance must be greater than 0")
 
     # Add a separator
     st.markdown("---")
@@ -380,8 +426,9 @@ def main():
             except Exception as e:
                 st.error(f"Error creating test DXF file: {str(e)}")
 
-    # Display the plot
+    # Display the plot with adjusted height
     fig = draw_lines()
+    fig.update_layout(height=800)  # Increased height to accommodate 4 lines
     st.plotly_chart(fig, use_container_width=True)
 
     # Display line data
