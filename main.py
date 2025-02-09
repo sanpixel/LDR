@@ -66,30 +66,15 @@ def create_dxf():
     # Add lines to the DXF
     for _, row in st.session_state.lines.iterrows():
         # Add the line
-        msp.add_line(
-            (row['start_x'], row['start_y'], 0),
-            (row['end_x'], row['end_y'], 0)
-        )
+        start_point = (float(row['start_x']), float(row['start_y']), 0.0)
+        end_point = (float(row['end_x']), float(row['end_y']), 0.0)
+        msp.add_line(start_point, end_point)
 
-        # Add text for bearing and distance
-        mid_x = (row['start_x'] + row['end_x']) / 2
-        mid_y = (row['start_y'] + row['end_y']) / 2
-
-        # Create text with correct position attributes
-        msp.add_text(
-            f"{row['bearing_desc']}\nDist: {row['distance']:.2f}",
-            dxfattribs={
-                'height': min(row['distance'] * 0.1, 1.0),  # Scale text size with line length
-                'rotation': 0,
-                'insert': (mid_x, mid_y)  # Use insert attribute for positioning
-            }
-        )
-
-    # Save to bytes buffer
-    buffer = BytesIO()
-    doc.write(buffer)
-    buffer.seek(0)
-    return buffer
+    # Create a binary buffer
+    output = BytesIO()
+    doc.write(output)
+    output.seek(0)
+    return output.read()
 
 def initialize_session_state():
     """Initialize session state variables if they don't exist."""
