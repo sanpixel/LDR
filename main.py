@@ -298,7 +298,7 @@ def main():
                     label="Download DXF",
                     data=dxf_buffer,
                     file_name="line_drawing.dxf",
-                    mime="application/dxf"
+                    mime="application/octet-stream"
                 )
             else:
                 st.warning("Add some lines before exporting")
