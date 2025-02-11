@@ -369,236 +369,200 @@ def main():
     st.title("Line Drawing Application")
     initialize_session_state()
 
-    # Add menu
-    menu = ["Draw Lines", "Import PDF", "About"]
-    choice = st.sidebar.selectbox("Menu", menu)
+    # PDF Upload Section
+    st.subheader("Import PDF with Bearings")
+    uploaded_file = st.file_uploader("Choose a PDF file", type="pdf")
 
-    if choice == "Draw Lines":
-        # Add line inputs in a grid layout
-        st.subheader("Draw Multiple Lines")
+    if uploaded_file is not None:
+        if st.button("Process PDF"):
+            bearings = process_pdf(uploaded_file)
+            if bearings:
+                st.success(f"Found {len(bearings)} bearings in the PDF")
 
-        # Create a container for all line inputs
-        with st.container():
-            for line_num in range(4):
-                st.write(f"Line {line_num + 1}")
-                col1, col2, col3, col4, col5, col6 = st.columns(6)
+                # Initialize session state for all form fields
+                for i in range(4):
+                    if i < len(bearings):
+                        bearing = bearings[i]  # Get the correct bearing for this iteration
+                        # Ensure all values are properly typed
+                        st.session_state[f"cardinal_ns_{i}"] = bearing['cardinal_ns']
+                        st.session_state[f"degrees_{i}"] = int(bearing['degrees'])
+                        st.session_state[f"minutes_{i}"] = int(bearing['minutes'])
+                        st.session_state[f"seconds_{i}"] = int(bearing['seconds'])
+                        st.session_state[f"cardinal_ew_{i}"] = bearing['cardinal_ew']
+                        st.session_state[f"distance_{i}"] = float(bearing['distance'])
+                    else:
+                        # Initialize remaining fields to defaults
+                        st.session_state[f"cardinal_ns_{i}"] = "North"
+                        st.session_state[f"degrees_{i}"] = 0
+                        st.session_state[f"minutes_{i}"] = 0
+                        st.session_state[f"seconds_{i}"] = 0
+                        st.session_state[f"cardinal_ew_{i}"] = "East"
+                        st.session_state[f"distance_{i}"] = 0.0
 
-                with col1:
-                    cardinal_ns = st.selectbox(
-                        "N/S",
-                        ["North", "South"],
-                        key=f"cardinal_ns_{line_num}"
-                    )
+    # Line Drawing Section
+    st.subheader("Draw Lines")
 
-                with col2:
-                    degrees = st.number_input(
-                        "Deg",
-                        min_value=0,
-                        max_value=90,
-                        value=0,
-                        step=1,
-                        format="%d",
-                        key=f"degrees_{line_num}"
-                    )
+    # Create a container for all line inputs
+    with st.container():
+        for line_num in range(4):
+            st.write(f"Line {line_num + 1}")
+            col1, col2, col3, col4, col5, col6 = st.columns(6)
 
-                with col3:
-                    minutes = st.number_input(
-                        "Min",
-                        min_value=0,
-                        max_value=59,
-                        value=0,
-                        format="%d",
-                        key=f"minutes_{line_num}"
-                    )
+            with col1:
+                cardinal_ns = st.selectbox(
+                    "N/S",
+                    ["North", "South"],
+                    key=f"cardinal_ns_{line_num}"
+                )
 
-                with col4:
-                    seconds = st.number_input(
-                        "Sec",
-                        min_value=0,
-                        max_value=59,
-                        value=0,
-                        format="%d",
-                        key=f"seconds_{line_num}"
-                    )
+            with col2:
+                degrees = st.number_input(
+                    "Deg",
+                    min_value=0,
+                    max_value=90,
+                    value=st.session_state.get(f"degrees_{line_num}", 0),
+                    step=1,
+                    format="%d",
+                    key=f"degrees_{line_num}"
+                )
 
-                with col5:
-                    cardinal_ew = st.selectbox(
-                        "E/W",
-                        ["East", "West"],
-                        key=f"cardinal_ew_{line_num}"
-                    )
+            with col3:
+                minutes = st.number_input(
+                    "Min",
+                    min_value=0,
+                    max_value=59,
+                    value=st.session_state.get(f"minutes_{line_num}", 0),
+                    format="%d",
+                    key=f"minutes_{line_num}"
+                )
 
-                with col6:
-                    distance = st.number_input(
-                        "Distance",
-                        min_value=0.0,
-                        value=1.0,
-                        format="%.1f",
-                        key=f"distance_{line_num}"
-                    )
+            with col4:
+                seconds = st.number_input(
+                    "Sec",
+                    min_value=0,
+                    max_value=59,
+                    value=st.session_state.get(f"seconds_{line_num}", 0),
+                    format="%d",
+                    key=f"seconds_{line_num}"
+                )
 
-        # Draw Lines button
-        if st.button("Draw Lines", use_container_width=True):
-            for line_num in range(4):
-                # Only process lines with non-zero distance
-                distance = st.session_state[f"distance_{line_num}"]
-                if distance > 0:
-                    # Convert DMS to decimal degrees
-                    bearing = dms_to_decimal(
-                        st.session_state[f"degrees_{line_num}"],
-                        st.session_state[f"minutes_{line_num}"],
-                        st.session_state[f"seconds_{line_num}"],
-                        st.session_state[f"cardinal_ns_{line_num}"],
-                        st.session_state[f"cardinal_ew_{line_num}"]
-                    )
+            with col5:
+                cardinal_ew = st.selectbox(
+                    "E/W",
+                    ["East", "West"],
+                    key=f"cardinal_ew_{line_num}"
+                )
 
-                    # Calculate new endpoint
-                    end_point = calculate_endpoint(st.session_state.current_point, bearing, distance)
+            with col6:
+                distance = st.number_input(
+                    "Distance",
+                    min_value=0.0,
+                    value=st.session_state.get(f"distance_{line_num}", 1.0),
+                    format="%.1f",
+                    key=f"distance_{line_num}"
+                )
 
-                    # Create bearing description
-                    bearing_desc = f"{st.session_state[f'cardinal_ns_{line_num}']} {st.session_state[f'degrees_{line_num}']}° {st.session_state[f'minutes_{line_num}']}' {st.session_state[f'seconds_{line_num}']}\" {st.session_state[f'cardinal_ew_{line_num}']}"
+    # Control Buttons
+    col1, col2, col3, col4 = st.columns(4)
 
-                    # Add new line to DataFrame
-                    new_line = pd.DataFrame({
-                        'start_x': [st.session_state.current_point[0]],
-                        'start_y': [st.session_state.current_point[1]],
-                        'end_x': [end_point[0]],
-                        'end_y': [end_point[1]],
-                        'bearing': [bearing],
-                        'bearing_desc': [bearing_desc],
-                        'distance': [distance]
-                    })
-                    st.session_state.lines = pd.concat([st.session_state.lines, new_line], ignore_index=True)
+    # Draw Lines button
+    if st.button("Draw Lines", use_container_width=True):
+        for line_num in range(4):
+            # Only process lines with non-zero distance
+            distance = st.session_state[f"distance_{line_num}"]
+            if distance > 0:
+                # Convert DMS to decimal degrees
+                bearing = dms_to_decimal(
+                    st.session_state[f"degrees_{line_num}"],
+                    st.session_state[f"minutes_{line_num}"],
+                    st.session_state[f"seconds_{line_num}"],
+                    st.session_state[f"cardinal_ns_{line_num}"],
+                    st.session_state[f"cardinal_ew_{line_num}"]
+                )
 
-                    # Update current point
-                    st.session_state.current_point = end_point
+                # Calculate new endpoint
+                end_point = calculate_endpoint(st.session_state.current_point, bearing, distance)
 
-    elif choice == "Import PDF":
-        st.subheader("Import PDF with Bearings")
-        uploaded_file = st.file_uploader("Choose a PDF file", type="pdf")
+                # Create bearing description
+                bearing_desc = f"{st.session_state[f'cardinal_ns_{line_num}']} {st.session_state[f'degrees_{line_num}']}° {st.session_state[f'minutes_{line_num}']}' {st.session_state[f'seconds_{line_num}']}\" {st.session_state[f'cardinal_ew_{line_num}']}"
 
-        if uploaded_file is not None:
-            if st.button("Process PDF"):
-                bearings = process_pdf(uploaded_file)
-                if bearings:
-                    st.success(f"Found {len(bearings)} bearings in the PDF")
+                # Add new line to DataFrame
+                new_line = pd.DataFrame({
+                    'start_x': [st.session_state.current_point[0]],
+                    'start_y': [st.session_state.current_point[1]],
+                    'end_x': [end_point[0]],
+                    'end_y': [end_point[1]],
+                    'bearing': [bearing],
+                    'bearing_desc': [bearing_desc],
+                    'distance': [distance]
+                })
+                st.session_state.lines = pd.concat([st.session_state.lines, new_line], ignore_index=True)
 
-                    # Debug output to verify bearing values
-                    st.write("Debug: Extracted Bearings")
-                    for i, bearing in enumerate(bearings):
-                        st.write(f"Bearing {i+1}:", bearing)
+                # Update current point
+                st.session_state.current_point = end_point
 
-                    # Initialize session state for all form fields
-                    for i in range(4):
-                        if i < len(bearings):
-                            bearing = bearings[i]  # Get the correct bearing for this iteration
-                            # Ensure all values are properly typed
-                            st.session_state[f"cardinal_ns_{i}"] = bearing['cardinal_ns']
-                            st.session_state[f"degrees_{i}"] = int(bearing['degrees'])
-                            st.session_state[f"minutes_{i}"] = int(bearing['minutes'])
-                            st.session_state[f"seconds_{i}"] = int(bearing['seconds'])
-                            st.session_state[f"cardinal_ew_{i}"] = bearing['cardinal_ew']
-                            st.session_state[f"distance_{i}"] = float(bearing['distance'])
+    # Add Rectangle button
+    with col1:
+        if st.button("Add Rectangle", use_container_width=True):
+            if st.session_state.get(f"distance_0", 0) > 0:
+                rectangle_lines = create_rectangle(st.session_state.current_point, st.session_state[f"distance_0"])
+                st.session_state.lines = pd.concat([st.session_state.lines, rectangle_lines], ignore_index=True)
+                st.session_state.current_point = [st.session_state.current_point[0], st.session_state.current_point[1]]
+            else:
+                st.error("Distance must be greater than 0")
 
-                            # Debug output specifically for lines 1 and 3
-                            if i == 0:
-                                st.write("Debug Line 1:")
-                                st.write(f"degrees_0 value: {st.session_state['degrees_0']}")
-                            elif i == 2:
-                                st.write("Debug Line 3:")
-                                st.write(f"minutes_2 value: {st.session_state['minutes_2']}")
-                        else:
-                            # Initialize remaining fields to defaults
-                            st.session_state[f"cardinal_ns_{i}"] = "North"
-                            st.session_state[f"degrees_{i}"] = 0
-                            st.session_state[f"minutes_{i}"] = 0
-                            st.session_state[f"seconds_{i}"] = 0
-                            st.session_state[f"cardinal_ew_{i}"] = "East"
-                            st.session_state[f"distance_{i}"] = 0.0
+    # Clear all button
+    with col2:
+        if st.button("Clear All", use_container_width=True):
+            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
+            st.session_state.current_point = [0, 0]
 
-                    st.info("Bearings have been loaded into the form. Please switch to 'Draw Lines' tab to verify the values and draw.")
-                else:
-                    st.warning("No bearings found in the PDF")
-
-    else:  # About
-        st.subheader("About")
-        st.write("""
-        This application allows you to:
-        - Draw lines using bearing and distance measurements
-        - Import bearings from PDF documents
-        - Export drawings to DXF format
-        """)
-
-    # Only show these controls in Draw Lines mode
-    if choice == "Draw Lines":
-        # Add a separator
-        st.markdown("---")
-
-        # Create a row for additional control buttons
-        col1, col2, col3, col4 = st.columns(4)
-
-        # Add Rectangle button
-        with col1:
-            if st.button("Add Rectangle", use_container_width=True):
-                if distance > 0:
-                    rectangle_lines = create_rectangle(st.session_state.current_point, distance)
-                    st.session_state.lines = pd.concat([st.session_state.lines, rectangle_lines], ignore_index=True)
-                    st.session_state.current_point = [st.session_state.current_point[0], st.session_state.current_point[1]]
-                else:
-                    st.error("Distance must be greater than 0")
-
-        # Clear all button
-        with col2:
-            if st.button("Clear All", use_container_width=True):
-                st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
-                st.session_state.current_point = [0, 0]
-
-        # Export DXF button
-        with col3:
-            if st.button("Export DXF", use_container_width=True):
-                if not st.session_state.lines.empty:
-                    try:
-                        dxf_data = create_dxf()
-                        if dxf_data and len(dxf_data) > 0:
-                            st.download_button(
-                                label="Download DXF",
-                                data=dxf_data,
-                                file_name="line_drawing.dxf",
-                                mime="application/octet-stream"
-                            )
-                        else:
-                            st.error("Error: Generated DXF file is empty")
-                    except Exception as e:
-                        st.error(f"Error creating DXF file: {str(e)}")
-                else:
-                    st.warning("Add some lines before exporting")
-
-        # Test DXF button
-        with col4:
-            if st.button("Test DXF", use_container_width=True):
+    # Export DXF button
+    with col3:
+        if st.button("Export DXF", use_container_width=True):
+            if not st.session_state.lines.empty:
                 try:
-                    test_dxf_data = create_test_dxf()
-                    if test_dxf_data and len(test_dxf_data) > 0:
+                    dxf_data = create_dxf()
+                    if dxf_data and len(dxf_data) > 0:
                         st.download_button(
-                            label="Download Test DXF",
-                            data=test_dxf_data,
-                            file_name="test.dxf",
+                            label="Download DXF",
+                            data=dxf_data,
+                            file_name="line_drawing.dxf",
                             mime="application/octet-stream"
                         )
                     else:
-                        st.error("Error: Generated test DXF file is empty")
+                        st.error("Error: Generated DXF file is empty")
                 except Exception as e:
-                    st.error(f"Error creating test DXF file: {str(e)}")
+                    st.error(f"Error creating DXF file: {str(e)}")
+            else:
+                st.warning("Add some lines before exporting")
 
-        # Display the plot with adjusted height
-        fig = draw_lines()
-        fig.update_layout(height=800)  # Increased height to accommodate 4 lines
-        st.plotly_chart(fig, use_container_width=True)
+    # Test DXF button
+    with col4:
+        if st.button("Test DXF", use_container_width=True):
+            try:
+                test_dxf_data = create_test_dxf()
+                if test_dxf_data and len(test_dxf_data) > 0:
+                    st.download_button(
+                        label="Download Test DXF",
+                        data=test_dxf_data,
+                        file_name="test.dxf",
+                        mime="application/octet-stream"
+                    )
+                else:
+                    st.error("Error: Generated test DXF file is empty")
+            except Exception as e:
+                st.error(f"Error creating test DXF file: {str(e)}")
 
-        # Display line data
-        if not st.session_state.lines.empty:
-            st.subheader("Line Data")
-            st.dataframe(st.session_state.lines[['bearing_desc', 'distance']])
+    # Display the plot
+    fig = draw_lines()
+    fig.update_layout(height=800)
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Display line data
+    if not st.session_state.lines.empty:
+        st.subheader("Line Data")
+        st.dataframe(st.session_state.lines[['bearing_desc', 'distance']])
 
 if __name__ == "__main__":
     main()
