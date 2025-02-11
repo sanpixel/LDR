@@ -25,7 +25,6 @@ def extract_bearings_from_text(text):
 
         if start_idx == -1 or end_idx == -1:
             st.warning("Could not find complete legal description markers")
-            # Display what we're looking for
             st.info(f"Looking for text starting with '{start_marker}' and ending with '{end_marker}'")
             return []
 
@@ -50,9 +49,19 @@ def extract_bearings_from_text(text):
             if match:
                 cardinal_ns, deg, min, sec, cardinal_ew = match.groups()
 
-                # Look for distance after the bearing
-                distance_match = re.search(r'(?:a\s+)?distance\s+of\s+(\d+(?:\.\d+)?)\s*(?:feet|foot|ft)', segment, re.IGNORECASE)
-                distance = float(distance_match.group(1)) if distance_match else 1.0
+                # Enhanced distance pattern to handle both dot and comma decimal separators
+                # Look for patterns like "123.45 feet" or "123,45 feet"
+                distance_pattern = r'(?:a\s+)?distance\s+of\s+(\d+[.,]?\d*)\s*(?:feet|foot|ft)'
+                distance_match = re.search(distance_pattern, segment, re.IGNORECASE)
+
+                if distance_match:
+                    # Replace comma with dot and convert to float
+                    distance_str = distance_match.group(1).replace(',', '.')
+                    distance = float(distance_str)
+                    # Format to exactly 2 decimal places
+                    distance = float(f"{distance:.2f}")
+                else:
+                    distance = 0.00
 
                 bearings.append({
                     'cardinal_ns': 'North' if cardinal_ns.lower() == 'north' else 'South',
@@ -66,9 +75,9 @@ def extract_bearings_from_text(text):
 
         # Display what we found
         if bearings:
-            st.subheader("Found Bearings")
+            st.subheader("Found Bearings and Distances")
             for i, bearing in enumerate(bearings):
-                st.text(f"Bearing {i+1}:\n{bearing['original_text']}")
+                st.text(f"Bearing {i+1}:\n{bearing['original_text']}\nDistance: {bearing['distance']:.2f} feet")
         else:
             st.warning("No bearings found in the expected format")
 
@@ -250,7 +259,7 @@ def draw_lines():
             y=[row['start_y'], row['end_y']],
             mode='lines+text',
             name=f'Line {idx+1}',
-            text=[f'Line {idx+1}: {row["bearing_desc"]}, {row["distance"]} units'],
+            text=[f'Line {idx+1}: {row["bearing_desc"]}, {row["distance"]:.2f} units'], #Updated to 2 decimals
             textposition='top center',
             line=dict(width=2)
         ))
@@ -397,7 +406,7 @@ def main():
                         st.session_state[f"minutes_{i}"] = 0
                         st.session_state[f"seconds_{i}"] = 0
                         st.session_state[f"cardinal_ew_{i}"] = "East"
-                        st.session_state[f"distance_{i}"] = 0.0
+                        st.session_state[f"distance_{i}"] = 0.00
 
     # Line Drawing Section
     st.subheader("Draw Lines")
@@ -457,8 +466,8 @@ def main():
                 distance = st.number_input(
                     "Distance",
                     min_value=0.0,
-                    value=st.session_state.get(f"distance_{line_num}", 1.0),
-                    format="%.1f",
+                    value=st.session_state.get(f"distance_{line_num}", 0.00),
+                    format="%.2f",  # Changed to always show 2 decimal places
                     key=f"distance_{line_num}"
                 )
 
