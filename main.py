@@ -483,16 +483,38 @@ def main():
                 if bearings:
                     st.success(f"Found {len(bearings)} bearings in the PDF")
 
-                    # Update the form fields with extracted bearings
-                    for i, bearing in enumerate(bearings[:4]):  # Limit to 4 bearings
-                        st.session_state[f"cardinal_ns_{i}"] = bearing['cardinal_ns']
-                        st.session_state[f"degrees_{i}"] = bearing['degrees']
-                        st.session_state[f"minutes_{i}"] = bearing['minutes']
-                        st.session_state[f"seconds_{i}"] = bearing['seconds']
-                        st.session_state[f"cardinal_ew_{i}"] = bearing['cardinal_ew']
-                        st.session_state[f"distance_{i}"] = bearing['distance']
+                    # Debug output to verify bearing values
+                    st.write("Debug: Extracted Bearings")
+                    for i, bearing in enumerate(bearings):
+                        st.write(f"Bearing {i+1}:", bearing)
 
-                    st.info("Bearings have been loaded into the form. Please switch to 'Draw Lines' tab to set distances and draw.")
+                    # Initialize session state for all form fields
+                    for i in range(4):
+                        if i < len(bearings):
+                            # Ensure all values are properly typed
+                            st.session_state[f"cardinal_ns_{i}"] = bearing['cardinal_ns']
+                            st.session_state[f"degrees_{i}"] = int(bearing['degrees'])
+                            st.session_state[f"minutes_{i}"] = int(bearing['minutes'])
+                            st.session_state[f"seconds_{i}"] = int(bearing['seconds'])
+                            st.session_state[f"cardinal_ew_{i}"] = bearing['cardinal_ew']
+                            st.session_state[f"distance_{i}"] = float(bearing['distance'])
+
+                            # Debug output for session state
+                            st.write(f"Debug: Setting values for line {i+1}")
+                            st.write(f"degrees_{i}: {st.session_state[f'degrees_{i}']}")
+                            st.write(f"minutes_{i}: {st.session_state[f'minutes_{i}']}")
+                            st.write(f"seconds_{i}: {st.session_state[f'seconds_{i}']}")
+                            st.write(f"distance_{i}: {st.session_state[f'distance_{i}']}")
+                        else:
+                            # Initialize remaining fields to defaults
+                            st.session_state[f"cardinal_ns_{i}"] = "North"
+                            st.session_state[f"degrees_{i}"] = 0
+                            st.session_state[f"minutes_{i}"] = 0
+                            st.session_state[f"seconds_{i}"] = 0
+                            st.session_state[f"cardinal_ew_{i}"] = "East"
+                            st.session_state[f"distance_{i}"] = 0.0
+
+                    st.info("Bearings have been loaded into the form. Please switch to 'Draw Lines' tab to verify the values and draw.")
                 else:
                     st.warning("No bearings found in the PDF")
 
