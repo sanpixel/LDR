@@ -73,7 +73,6 @@ def extract_bearings_from_text(text):
             st.warning("No bearings found in the expected format")
 
         return bearings
-
     except Exception as e:
         st.error(f"Error parsing text: {str(e)}")
         return []
@@ -104,7 +103,6 @@ def process_pdf(uploaded_file):
         # Extract bearings from text
         bearings = extract_bearings_from_text(extracted_text)
         return bearings
-
     except Exception as e:
         st.error(f"Error processing PDF: {str(e)}")
         return []
@@ -492,6 +490,7 @@ def main():
                         st.session_state[f"minutes_{i}"] = bearing['minutes']
                         st.session_state[f"seconds_{i}"] = bearing['seconds']
                         st.session_state[f"cardinal_ew_{i}"] = bearing['cardinal_ew']
+                        st.session_state[f"distance_{i}"] = bearing['distance']
 
                     st.info("Bearings have been loaded into the form. Please switch to 'Draw Lines' tab to set distances and draw.")
                 else:
