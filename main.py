@@ -491,6 +491,7 @@ def main():
                     # Initialize session state for all form fields
                     for i in range(4):
                         if i < len(bearings):
+                            bearing = bearings[i]  # Get the correct bearing for this iteration
                             # Ensure all values are properly typed
                             st.session_state[f"cardinal_ns_{i}"] = bearing['cardinal_ns']
                             st.session_state[f"degrees_{i}"] = int(bearing['degrees'])
@@ -499,12 +500,13 @@ def main():
                             st.session_state[f"cardinal_ew_{i}"] = bearing['cardinal_ew']
                             st.session_state[f"distance_{i}"] = float(bearing['distance'])
 
-                            # Debug output for session state
-                            st.write(f"Debug: Setting values for line {i+1}")
-                            st.write(f"degrees_{i}: {st.session_state[f'degrees_{i}']}")
-                            st.write(f"minutes_{i}: {st.session_state[f'minutes_{i}']}")
-                            st.write(f"seconds_{i}: {st.session_state[f'seconds_{i}']}")
-                            st.write(f"distance_{i}: {st.session_state[f'distance_{i}']}")
+                            # Debug output specifically for lines 1 and 3
+                            if i == 0:
+                                st.write("Debug Line 1:")
+                                st.write(f"degrees_0 value: {st.session_state['degrees_0']}")
+                            elif i == 2:
+                                st.write("Debug Line 3:")
+                                st.write(f"minutes_2 value: {st.session_state['minutes_2']}")
                         else:
                             # Initialize remaining fields to defaults
                             st.session_state[f"cardinal_ns_{i}"] = "North"
