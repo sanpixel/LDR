@@ -49,9 +49,8 @@ def extract_bearings_from_text(text):
             if match:
                 cardinal_ns, deg, min, sec, cardinal_ew = match.groups()
 
-                # Enhanced distance pattern to handle both dot and comma decimal separators
-                # Look for patterns like "123.45 feet" or "123,45 feet"
-                distance_pattern = r'(?:a\s+)?distance\s+of\s+(\d+[.,]?\d*)\s*(?:feet|foot|ft)'
+                # Enhanced distance pattern to better handle variations in distance formatting
+                distance_pattern = r'(?:a\s+)?distance\s+of\s+(\d+[.,]\d+|\d+)\s*(?:feet|foot|ft)'
                 distance_match = re.search(distance_pattern, segment, re.IGNORECASE)
 
                 if distance_match:
