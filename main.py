@@ -12,22 +12,71 @@ import tempfile
 import os
 
 def extract_bearings_from_text(text):
-    """Extract bearings in the format N DD MM SS E from text."""
-    # Pattern matches formats like "N 11 22 33 E" or "N11°22'33"E"
-    pattern = r'([NS])\s*(\d+)[\s°]*(\d+)[\s\']*(\d+)[\s"]*([EW])'
-    matches = re.finditer(pattern, text)
+    """Extract bearings from legal description format."""
+    try:
+        # Find the legal description section
+        start_marker = "beginning at a point"
+        end_marker = "point of beginning"
 
-    bearings = []
-    for match in matches:
-        cardinal_ns, deg, min, sec, cardinal_ew = match.groups()
-        bearings.append({
-            'cardinal_ns': 'North' if cardinal_ns == 'N' else 'South',
-            'degrees': int(deg),
-            'minutes': int(min),
-            'seconds': int(sec),
-            'cardinal_ew': 'East' if cardinal_ew == 'E' else 'West'
-        })
-    return bearings
+        # Case insensitive search
+        text_lower = text.lower()
+        start_idx = text_lower.find(start_marker)
+        end_idx = text_lower.find(end_marker)
+
+        if start_idx == -1 or end_idx == -1:
+            st.warning("Could not find complete legal description markers")
+            # Display what we're looking for
+            st.info(f"Looking for text starting with '{start_marker}' and ending with '{end_marker}'")
+            return []
+
+        # Extract the relevant section
+        legal_desc = text[start_idx:end_idx]
+
+        # Split by 'thence' to get individual bearings
+        segments = [s.strip() for s in legal_desc.split('thence')]
+
+        # Display the segments for debugging
+        st.subheader("Extracted Segments")
+        for i, segment in enumerate(segments):
+            st.text(f"Segment {i}:\n{segment}")
+
+        bearings = []
+        # Pattern matches formats like "North 11 degrees 22 minutes 33 seconds East"
+        pattern = r'(North|South)\s+(\d+)\s*(?:degrees|°)?\s*(\d+)\s*(?:minutes|\'|′)?\s*(\d+)\s*(?:seconds|"|″)?\s+(East|West)'
+
+        for segment in segments:
+            # Look for bearing pattern in each segment
+            match = re.search(pattern, segment, re.IGNORECASE)
+            if match:
+                cardinal_ns, deg, min, sec, cardinal_ew = match.groups()
+
+                # Look for distance after the bearing
+                distance_match = re.search(r'(?:a\s+)?distance\s+of\s+(\d+(?:\.\d+)?)\s*(?:feet|foot|ft)', segment, re.IGNORECASE)
+                distance = float(distance_match.group(1)) if distance_match else 1.0
+
+                bearings.append({
+                    'cardinal_ns': 'North' if cardinal_ns.lower() == 'north' else 'South',
+                    'degrees': int(deg),
+                    'minutes': int(min),
+                    'seconds': int(sec),
+                    'cardinal_ew': 'East' if cardinal_ew.lower() == 'east' else 'West',
+                    'distance': distance,
+                    'original_text': segment.strip()
+                })
+
+        # Display what we found
+        if bearings:
+            st.subheader("Found Bearings")
+            for i, bearing in enumerate(bearings):
+                st.text(f"Bearing {i+1}:\n{bearing['original_text']}")
+        else:
+            st.warning("No bearings found in the expected format")
+
+        return bearings
+
+    except Exception as e:
+        st.error(f"Error parsing text: {str(e)}")
+        return []
 
 def process_pdf(uploaded_file):
     """Process uploaded PDF file and extract bearings."""
