@@ -42,12 +42,15 @@ def process_pdf(uploaded_file):
 
         # Extract text from each page
         extracted_text = ""
-        for image in images:
+        for i, image in enumerate(images):
             text = pytesseract.image_to_string(image)
-            extracted_text += text + "\n"
+            extracted_text += f"\n--- Page {i+1} ---\n{text}\n"
 
         # Clean up temporary file
         os.unlink(pdf_path)
+
+        # Display raw extracted text
+        st.text_area("Raw Extracted Text", extracted_text, height=300)
 
         # Extract bearings from text
         bearings = extract_bearings_from_text(extracted_text)
