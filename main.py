@@ -392,6 +392,9 @@ def main():
                 for i in range(4):
                     if i < len(bearings):
                         bearing = bearings[i]  # Get the correct bearing for this iteration
+                        # Debug output for distance value
+                        st.write(f"Debug: Bearing {i+1} distance value: {bearing['distance']}")
+
                         # Ensure all values are properly typed
                         st.session_state[f"cardinal_ns_{i}"] = bearing['cardinal_ns']
                         st.session_state[f"degrees_{i}"] = int(bearing['degrees'])
