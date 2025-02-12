@@ -424,7 +424,7 @@ def main():
                         st.session_state[f"minutes_{i}"] = 0
                         st.session_state[f"seconds_{i}"] = 0
                         st.session_state[f"cardinal_ew_{i}"] = "East"
-                        st.session_state[f"distance_{i}"] = 0.00
+                        st.session_state[f"distance_{i}"] = bearing['distance']
 
     # Line Drawing Section
     st.subheader("Draw Lines")
@@ -509,6 +509,15 @@ def main():
 
                 # Calculate new endpoint
                 end_point = calculate_endpoint(st.session_state.current_point, bearing, distance)
+
+                # Extract distance from the text after bearing description
+                distance_pattern = r'(\d+(?:\.\d+)?)\s*feet'
+                distance_match = re.search(distance_pattern, segment, re.IGNORECASE)
+                
+                if distance_match:
+                    distance = float(distance_match.group(1))
+                else:
+                    distance = 0.00
 
                 # Create bearing description
                 bearing_desc = f"{st.session_state[f'cardinal_ns_{line_num}']} {st.session_state[f'degrees_{line_num}']}° {st.session_state[f'minutes_{line_num}']}' {st.session_state[f'seconds_{line_num}']}\" {st.session_state[f'cardinal_ew_{line_num}']}"
