@@ -374,6 +374,22 @@ def create_rectangle(start_point, side_length):
     return pd.DataFrame(lines)
 
 def main():
+    # Configure Streamlit for file uploads
+    st.set_page_config(
+        page_title="Line Drawing Application",
+        initial_sidebar_state="expanded",
+        layout="wide"
+    )
+    
+    # Add CORS headers
+    headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+    }
+    for key, value in headers.items():
+        st.markdown(f'<style>header {{-webkit-{key}: {value}; {key}: {value};}}</style>', unsafe_allow_html=True)
+    
     st.title("Line Drawing Application")
     initialize_session_state()
 
