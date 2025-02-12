@@ -512,12 +512,16 @@ def main():
 
                 # Extract distance from the text after bearing description
                 distance_pattern = r'(\d+(?:\.\d+)?)\s*feet'
-                distance_match = re.search(distance_pattern, segment, re.IGNORECASE)
+                st.write(f"Debug - Pattern searching for: {distance_pattern}")
+                distance_match = re.search(distance_pattern, bearing_desc)
+                st.write(f"Debug - Text searched in: {bearing_desc}")
                 
                 if distance_match:
                     distance = float(distance_match.group(1))
+                    st.write(f"Debug - Found distance: {distance}")
                 else:
                     distance = 0.00
+                    st.write("Debug - No distance match found")
 
                 # Create bearing description
                 bearing_desc = f"{st.session_state[f'cardinal_ns_{line_num}']} {st.session_state[f'degrees_{line_num}']}° {st.session_state[f'minutes_{line_num}']}' {st.session_state[f'seconds_{line_num}']}\" {st.session_state[f'cardinal_ew_{line_num}']}"
