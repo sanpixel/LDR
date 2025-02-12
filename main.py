@@ -382,8 +382,13 @@ def main():
     )
     
     # Add CORS headers
-    st.set_option('server.enableCORS', True)
-    st.set_option('server.enableXsrfProtection', False)
+    headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+    }
+    for key, value in headers.items():
+        st.markdown(f'<style>header {{-webkit-{key}: {value}; {key}: {value};}}</style>', unsafe_allow_html=True)
     
     st.title("Line Drawing Application")
     initialize_session_state()
