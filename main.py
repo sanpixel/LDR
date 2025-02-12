@@ -511,7 +511,7 @@ def main():
                 end_point = calculate_endpoint(st.session_state.current_point, bearing, distance)
 
                 # Extract distance from the text after bearing description
-                distance_pattern = r'(\d+(?:\.\d+)?)\s*feet'
+                distance_pattern = r'(\d+(?:\.\d+)?)\s*(?=feet)'
                 st.write(f"Debug - Pattern searching for: {distance_pattern}")
                 distance_match = re.search(distance_pattern, bearing_desc)
                 st.write(f"Debug - Text searched in: {bearing_desc}")
