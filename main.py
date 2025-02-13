@@ -12,51 +12,49 @@ import tempfile
 import os
 
 def extract_bearings_from_text(text):
-    """Extract bearings from legal description format."""
+    """Extract bearings from text with more flexible pattern matching."""
     try:
-        # Find the legal description section
-        start_marker = "beginning at a point"
-        end_marker = "point of beginning"
+        # Find the first occurrence of North or South with more flexible pattern
+        first_bearing_pattern = r'(North|South)\s*\d+(?:\s*°|\s*degrees|\s+)'
+        start_match = re.search(first_bearing_pattern, text, re.IGNORECASE)
 
-        # Case insensitive search
-        text_lower = text.lower()
-        start_idx = text_lower.find(start_marker)
-        end_idx = text_lower.find(end_marker)
-
-        if start_idx == -1 or end_idx == -1:
-            st.warning("Could not find complete legal description markers")
-            st.info(f"Looking for text starting with '{start_marker}' and ending with '{end_marker}'")
+        if not start_match:
+            st.warning("Could not find any bearings in the text")
+            st.info("Looking for text starting with 'North' or 'South' followed by numbers")
             return []
 
-        # Extract the relevant section
-        legal_desc = text[start_idx:end_idx]
+        # Extract text from the first bearing onwards
+        relevant_text = text[start_match.start():]
 
-        # Split by 'thence' to get individual bearings
-        segments = [s.strip() for s in legal_desc.split('thence')]
+        # Debug: Show the text we're working with
+        st.subheader("Extracted Text Starting at First Bearing")
+        st.text(relevant_text[:500])  # Show first 500 chars
 
-        # Display the segments for debugging
-        st.subheader("Extracted Segments")
-        for i, segment in enumerate(segments):
-            st.text(f"Segment {i}:\n{segment}")
+        # Pattern matches formats like "North 11° 22' 33" East" with flexible separators
+        pattern = r'(North|South)\s*(\d+)\s*(?:°|degrees|deg|\s)\s*(\d+)\s*(?:\'|′|minutes|min|\s)\s*(\d+)\s*(?:"|″|seconds|sec|\s)\s*(East|West)'
+
+        # Split text into potential segments at common delimiters
+        segments = re.split(r'(?:thence|;|,|\n)', relevant_text)
 
         bearings = []
-        # Pattern matches formats like "North 11 degrees 22 minutes 33 seconds East"
-        pattern = r'(North|South)\s+(\d+)\s*(?:degrees|°)?\s*(\d+)\s*(?:minutes|\'|′)?\s*(\d+)\s*(?:seconds|"|″)?\s+(East|West)'
-
         for segment in segments:
             # Look for bearing pattern in each segment
             match = re.search(pattern, segment, re.IGNORECASE)
             if match:
                 cardinal_ns, deg, min, sec, cardinal_ew = match.groups()
 
-                distance = 0.00 # Default distance
-                distance_pattern = r'(\d+[.,\d]*)\s*(?=feet)' # Match any number before 'feet'
+                # Debug: Show matched segment
+                st.text(f"\nMatched segment:\n{segment.strip()}")
+
+                # Look for distance in the same segment
+                distance = 0.00  # Default distance
+                # More flexible distance pattern
+                distance_pattern = r'(\d+[.,\d]*)\s*(?:feet|ft|\')'
                 distance_match = re.search(distance_pattern, segment, re.IGNORECASE)
                 if distance_match:
                     # Remove all punctuation and add decimal point for 2 decimal places
                     distance_str = re.sub(r'[.,]', '', distance_match.group(1))
                     distance = float(distance_str) / 100  # Convert to decimal form
-
 
                 bearings.append({
                     'cardinal_ns': 'North' if cardinal_ns.lower() == 'north' else 'South',
@@ -74,9 +72,10 @@ def extract_bearings_from_text(text):
             for i, bearing in enumerate(bearings):
                 st.text(f"Bearing {i+1}:\n{bearing['original_text']}\nDistance: {bearing['distance']:.2f} feet")
         else:
-            st.warning("No bearings found in the expected format")
+            st.warning("No complete bearings found in the expected format")
 
         return bearings
+
     except Exception as e:
         st.error(f"Error parsing text: {str(e)}")
         return []

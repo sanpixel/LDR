@@ -12,5 +12,6 @@ dependencies = [
     "plotly>=6.0.0",
     "pytesseract>=0.3.13",
     "streamlit>=1.42.0",
+    "trafilatura>=2.0.0",
     "twilio>=9.4.4",
 ]
