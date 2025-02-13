@@ -21,29 +21,8 @@ def extract_bearings_with_gpt(text):
     try:
         # Create a prompt that instructs GPT to find bearings
         prompt = """Extract all bearings and distances from the following legal description text. 
-        Return them as a JSON array where each bearing has:
-        - cardinal_ns (North/South)
-        - degrees (integer)
-        - minutes (integer)
-        - seconds (integer)
-        - cardinal_ew (East/West)
-        - distance (float with 2 decimal places)
-        - original_text (the full text segment containing the bearing)
-
-        Example format:
-        {
-            "bearings": [
-                {
-                    "cardinal_ns": "North",
-                    "degrees": 45,
-                    "minutes": 30,
-                    "seconds": 20,
-                    "cardinal_ew": "East",
-                    "distance": 100.00,
-                    "original_text": "North 45° 30' 20\" East, a distance of 100.00 feet"
-                }
-            ]
-        }
+        Format each bearing exactly like this example, one per line:
+        BEARING: North 45 degrees 30 minutes 20 seconds East DISTANCE: 100.00 feet
 
         Text to analyze:
         """ + text
@@ -55,18 +34,54 @@ def extract_bearings_with_gpt(text):
                 "role": "user",
                 "content": prompt
             }],
-            response_format={"type": "json_object"},
             temperature=0
         )
 
-        # Parse the response
-        result = json.loads(response.choices[0].message.content)
+        # Get the response text
+        result_text = response.choices[0].message.content
 
         # Debug output
         st.subheader("GPT Analysis Results")
-        st.json(result)
+        st.text(result_text)
 
-        return result.get("bearings", [])
+        # Parse the response into our bearing format
+        bearings = []
+        for line in result_text.split('\n'):
+            if line.strip().startswith('BEARING:'):
+                try:
+                    # Split into bearing and distance parts
+                    parts = line.split('DISTANCE:')
+                    if len(parts) != 2:
+                        continue
+
+                    bearing_text = parts[0].replace('BEARING:', '').strip()
+                    distance_text = parts[1].strip()
+
+                    # Parse bearing components
+                    pattern = r'(North|South)\s+(\d+)\s+degrees\s+(\d+)\s+minutes\s+(\d+)\s+seconds\s+(East|West)'
+                    match = re.search(pattern, bearing_text)
+
+                    if match:
+                        cardinal_ns, deg, min, sec, cardinal_ew = match.groups()
+
+                        # Parse distance
+                        distance_match = re.search(r'(\d+(?:\.\d+)?)\s*feet', distance_text)
+                        distance = float(distance_match.group(1)) if distance_match else 0.00
+
+                        bearings.append({
+                            'cardinal_ns': cardinal_ns,
+                            'degrees': int(deg),
+                            'minutes': int(min),
+                            'seconds': int(sec),
+                            'cardinal_ew': cardinal_ew,
+                            'distance': distance,
+                            'original_text': line.strip()
+                        })
+                except Exception as parse_error:
+                    st.warning(f"Could not parse line: {line}\nError: {str(parse_error)}")
+                    continue
+
+        return bearings
 
     except Exception as e:
         st.error(f"Error using GPT to parse text: {str(e)}")
