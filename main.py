@@ -489,6 +489,24 @@ def main():
                 bearings = process_pdf(uploaded_file)
                 if bearings:
                     st.success(f"Found {len(bearings)} bearings in the PDF")
+                    # Initialize session state for all form fields
+                    for i in range(4):
+                        if i < len(bearings):
+                            bearing = bearings[i]
+                            st.session_state[f"cardinal_ns_{i}"] = bearing['cardinal_ns']
+                            st.session_state[f"degrees_{i}"] = int(bearing['degrees'])
+                            st.session_state[f"minutes_{i}"] = int(bearing['minutes'])
+                            st.session_state[f"seconds_{i}"] = int(bearing['seconds'])
+                            st.session_state[f"cardinal_ew_{i}"] = bearing['cardinal_ew']
+                            st.session_state[f"distance_{i}"] = float(bearing['distance'])
+                        else:
+                            # Initialize remaining fields to defaults
+                            st.session_state[f"cardinal_ns_{i}"] = "North"
+                            st.session_state[f"degrees_{i}"] = 0
+                            st.session_state[f"minutes_{i}"] = 0
+                            st.session_state[f"seconds_{i}"] = 0
+                            st.session_state[f"cardinal_ew_{i}"] = "East"
+                            st.session_state[f"distance_{i}"] = 0.00
 
     # Show extracted text and analysis in the second column if available
     with col2:
