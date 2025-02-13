@@ -50,10 +50,12 @@ def extract_bearings_from_text(text):
                 cardinal_ns, deg, min, sec, cardinal_ew = match.groups()
 
                 distance = 0.00 # Default distance
-                distance_pattern = r'(\d+(?:\.\d+)?)\s*(?=feet)' # Retained original regex
+                distance_pattern = r'(\d+[.,\d]*)\s*(?=feet)' # Match any number before 'feet'
                 distance_match = re.search(distance_pattern, segment, re.IGNORECASE)
                 if distance_match:
-                    distance = float(distance_match.group(1))
+                    # Remove all punctuation and add decimal point for 2 decimal places
+                    distance_str = re.sub(r'[.,]', '', distance_match.group(1))
+                    distance = float(distance_str) / 100  # Convert to decimal form
 
 
                 bearings.append({
