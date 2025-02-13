@@ -140,6 +140,10 @@ def process_pdf(uploaded_file):
                     st.success(f"Successfully extracted {len(bearings)} bearings using GPT")
                     # Store bearings in session state
                     st.session_state.parsed_bearings = bearings
+                    # Automatically draw lines
+                    st.session_state.current_point = [0, 0]  # Reset starting point
+                    st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
+                    draw_lines_from_bearings()
                     return bearings
                 else:
                     st.warning("GPT analysis found no bearings, falling back to pattern matching...")
@@ -155,6 +159,10 @@ def process_pdf(uploaded_file):
             st.success(f"Found {len(bearings)} bearings using pattern matching")
             # Store bearings in session state
             st.session_state.parsed_bearings = bearings
+            # Automatically draw lines
+            st.session_state.current_point = [0, 0]  # Reset starting point
+            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
+            draw_lines_from_bearings()
         else:
             st.warning("No bearings found with pattern matching")
 
@@ -521,6 +529,45 @@ def extract_supplemental_info_with_gpt(text):
         st.error(f"Error extracting supplemental info: {str(e)}")
         return None
 
+def draw_lines_from_bearings():
+    """Draw lines using the parsed bearings from session state."""
+    if not st.session_state.parsed_bearings:
+        return
+
+    for line_num, bearing in enumerate(st.session_state.parsed_bearings):
+        # Only process lines with non-zero distance
+        distance = bearing['distance']
+        if distance > 0:
+            # Convert DMS to decimal degrees
+            bearing_decimal = dms_to_decimal(
+                bearing['degrees'],
+                bearing['minutes'],
+                bearing['seconds'],
+                bearing['cardinal_ns'],
+                bearing['cardinal_ew']
+            )
+
+            # Calculate new endpoint
+            end_point = calculate_endpoint(st.session_state.current_point, bearing_decimal, distance)
+
+            # Create bearing description
+            bearing_desc = bearing['original_text']
+
+            # Add new line to DataFrame
+            new_line = pd.DataFrame({
+                'start_x': [st.session_state.current_point[0]],
+                'start_y': [st.session_state.current_point[1]],
+                'end_x': [end_point[0]],
+                'end_y': [end_point[1]],
+                'bearing': [bearing_decimal],
+                'bearing_desc': [bearing_desc],
+                'distance': [distance]
+            })
+            st.session_state.lines = pd.concat([st.session_state.lines, new_line], ignore_index=True)
+
+            # Update current point
+            st.session_state.current_point = end_point
+
 def main():
     # Configure Streamlit for file uploads
     st.set_page_config(
@@ -653,39 +700,10 @@ def main():
     # Draw Lines button
     with col1:
         if st.button("Draw Lines", use_container_width=True):
-            for line_num in range(4):
-                # Only process lines with non-zero distance
-                distance = st.session_state[f"distance_{line_num}"]
-                if distance > 0:
-                    # Convert DMS to decimal degrees
-                    bearing = dms_to_decimal(
-                        st.session_state[f"degrees_{line_num}"],
-                        st.session_state[f"minutes_{line_num}"],
-                        st.session_state[f"seconds_{line_num}"],
-                        st.session_state[f"cardinal_ns_{line_num}"],
-                        st.session_state[f"cardinal_ew_{line_num}"]
-                    )
-
-                    # Calculate new endpoint
-                    end_point = calculate_endpoint(st.session_state.current_point, bearing, distance)
-
-                    # Create bearing description
-                    bearing_desc = f"{st.session_state[f'cardinal_ns_{line_num}']} {st.session_state[f'degrees_{line_num}']}° {st.session_state[f'minutes_{line_num}']}' {st.session_state[f'seconds_{line_num}']}\" {st.session_state[f'cardinal_ew_{line_num}']}"
-
-                    # Add new line to DataFrame
-                    new_line = pd.DataFrame({
-                        'start_x': [st.session_state.current_point[0]],
-                        'start_y': [st.session_state.current_point[1]],
-                        'end_x': [end_point[0]],
-                        'end_y': [end_point[1]],
-                        'bearing': [bearing],
-                        'bearing_desc': [bearing_desc],
-                        'distance': [distance]
-                    })
-                    st.session_state.lines = pd.concat([st.session_state.lines, new_line], ignore_index=True)
-
-                    # Update current point
-                    st.session_state.current_point = end_point
+            # Reset starting point and lines
+            st.session_state.current_point = [0, 0]
+            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
+            draw_lines_from_bearings()
 
     # Show Land Lot button
     with col2:
