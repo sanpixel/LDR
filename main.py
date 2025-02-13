@@ -34,6 +34,10 @@ def extract_bearings_from_text(text):
         # Split by 'thence' to get individual bearings
         segments = [s.strip() for s in legal_desc.split('thence')]
 
+        # Display the segments for debugging
+        st.subheader("Extracted Segments")
+        for i, segment in enumerate(segments):
+            st.text(f"Segment {i}:\n{segment}")
 
         bearings = []
         # Pattern matches formats like "North 11 degrees 22 minutes 33 seconds East"
@@ -45,14 +49,18 @@ def extract_bearings_from_text(text):
             if match:
                 cardinal_ns, deg, min, sec, cardinal_ew = match.groups()
 
-                distance = 0.00 # Default distance
-                distance_pattern = r'(\d+[.,\d]*)\s*(?=feet)' # Match any number before 'feet'
+                # Enhanced distance pattern to better handle variations in distance formatting
+                distance_pattern = r'(?:a\s+)?distance\s+of\s+(\d+[.,]\d+|\d+)\s*(?:feet|foot|ft)'
                 distance_match = re.search(distance_pattern, segment, re.IGNORECASE)
-                if distance_match:
-                    # Remove all punctuation and add decimal point for 2 decimal places
-                    distance_str = re.sub(r'[.,]', '', distance_match.group(1))
-                    distance = float(distance_str) / 100  # Convert to decimal form
 
+                if distance_match:
+                    # Replace comma with dot and convert to float
+                    distance_str = distance_match.group(1).replace(',', '.')
+                    distance = float(distance_str)
+                    # Format to exactly 2 decimal places
+                    distance = float(f"{distance:.2f}")
+                else:
+                    distance = 0.00
 
                 bearings.append({
                     'cardinal_ns': 'North' if cardinal_ns.lower() == 'north' else 'South',
@@ -63,6 +71,14 @@ def extract_bearings_from_text(text):
                     'distance': distance,
                     'original_text': segment.strip()
                 })
+
+        # Display what we found
+        if bearings:
+            st.subheader("Found Bearings and Distances")
+            for i, bearing in enumerate(bearings):
+                st.text(f"Bearing {i+1}:\n{bearing['original_text']}\nDistance: {bearing['distance']:.2f} feet")
+        else:
+            st.warning("No bearings found in the expected format")
 
         return bearings
     except Exception as e:
@@ -94,28 +110,6 @@ def process_pdf(uploaded_file):
 
         # Extract bearings from text
         bearings = extract_bearings_from_text(extracted_text)
-
-        # First show success/failure of extraction
-        if bearings:
-            st.success(f"Successfully extracted {len(bearings)} bearings from the PDF")
-        else:
-            st.warning("No bearings found in the PDF")
-
-        # Display detailed extraction results at the end
-        if bearings:
-            # Show all extracted segments
-            st.expander("Show Extracted Segments", expanded=False)
-            for i, segment in enumerate(legal_desc.split('thence')):
-                st.text(f"Segment {i}:\n{segment}")
-
-            # Show found bearings and distances
-            st.expander("Show Found Bearings and Distances", expanded=False)
-            for i, bearing in enumerate(bearings):
-                st.text(f"""
-                Bearing {i+1}:
-                {bearing['original_text']}
-                Distance: {bearing['distance']:.2f} feet""")
-
         return bearings
     except Exception as e:
         st.error(f"Error processing PDF: {str(e)}")
@@ -184,10 +178,16 @@ def create_dxf():
         doc = ezdxf.new(setup=True)
         msp = doc.modelspace()
 
+        # Debug: Show how many lines we're processing
+        st.write(f"Processing {len(st.session_state.lines)} lines for DXF export")
+
         # Add each line
         for idx, row in st.session_state.lines.iterrows():
             start = (float(row['start_x']), float(row['start_y']))
             end = (float(row['end_x']), float(row['end_y']))
+
+            # Debug: Show coordinates being added
+            st.write(f"Adding line {idx+1}: ({start[0]}, {start[1]}) to ({end[0]}, {end[1]})")
 
             try:
                 msp.add_line((start[0], start[1]), (end[0], end[1]), dxfattribs={"layer": "Lines"})
@@ -374,22 +374,6 @@ def create_rectangle(start_point, side_length):
     return pd.DataFrame(lines)
 
 def main():
-    # Configure Streamlit for file uploads
-    st.set_page_config(
-        page_title="Line Drawing Application",
-        initial_sidebar_state="expanded",
-        layout="wide"
-    )
-
-    # Add CORS headers
-    headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
-    }
-    for key, value in headers.items():
-        st.markdown(f'<style>header {{-webkit-{key}: {value}; {key}: {value};}}</style>', unsafe_allow_html=True)
-
     st.title("Line Drawing Application")
     initialize_session_state()
 
@@ -401,13 +385,15 @@ def main():
         if st.button("Process PDF"):
             bearings = process_pdf(uploaded_file)
             if bearings:
-                #Move success message to process_pdf
-                #st.success(f"Found {len(bearings)} bearings in the PDF")
+                st.success(f"Found {len(bearings)} bearings in the PDF")
 
                 # Initialize session state for all form fields
                 for i in range(4):
                     if i < len(bearings):
                         bearing = bearings[i]  # Get the correct bearing for this iteration
+                        # Debug output for distance value
+                        st.write(f"Debug: Bearing {i+1} distance value: {bearing['distance']}")
+
                         # Ensure all values are properly typed
                         st.session_state[f"cardinal_ns_{i}"] = bearing['cardinal_ns']
                         st.session_state[f"degrees_{i}"] = int(bearing['degrees'])
@@ -507,7 +493,6 @@ def main():
 
                 # Calculate new endpoint
                 end_point = calculate_endpoint(st.session_state.current_point, bearing, distance)
-
 
                 # Create bearing description
                 bearing_desc = f"{st.session_state[f'cardinal_ns_{line_num}']} {st.session_state[f'degrees_{line_num}']}° {st.session_state[f'minutes_{line_num}']}' {st.session_state[f'seconds_{line_num}']}\" {st.session_state[f'cardinal_ew_{line_num}']}"
