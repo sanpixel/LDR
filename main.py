@@ -435,12 +435,14 @@ def draw_lines():
         xaxis_title='X Coordinate',
         yaxis_title='Y Coordinate',
         xaxis=dict(
+            showgrid=False,
             zeroline=True,
             scaleanchor="y",
             scaleratio=1,
             constrain="domain"
         ),
         yaxis=dict(
+            showgrid=False,
             zeroline=True,
             constrain="domain"
         ),
@@ -772,7 +774,7 @@ def main():
                     if dxf_data and len(dxf_data) > 0:
                         st.download_button(
                             label="Download DXF",
-                            data=dxf_data,
+                            data=dxdata,
                             file_name="line_drawing.dxf",
                             mime="application/octet-stream"
                         )
