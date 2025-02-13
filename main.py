@@ -389,8 +389,8 @@ def draw_lines():
         text="POB",
         showarrow=True,
         arrowhead=2,
-        ax=30,  # Offset x position for text
-        ay=-30,  # Offset y position for text
+        ax=12,  # X coordinate for text and arrow start
+        ay=12,  # Y coordinate for text and arrow start
         font=dict(size=14),
         arrowsize=1.5,
         arrowwidth=2
@@ -779,9 +779,7 @@ def main():
                 st.session_state[f"minutes_{i}"] = 0
                 st.session_state[f"seconds_{i}"] = 0
                 st.session_state[f"cardinal_ew_{i}"] = "East"
-                st.session_state[f"distance_{i}"] = 0.00
-
-    # Export DXF button
+                st.session_state[f"distance_{i}"] = 0.00    # Export DXF button
     with col4:
         if st.button("Export DXF", use_container_width=True):
             if not st.session_state.lines.empty:
