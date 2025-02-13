@@ -53,9 +53,7 @@ def extract_bearings_from_text(text):
                 distance_pattern = r'(\d+(?:\.\d+)?)\s*(?=feet)' # Retained original regex
                 distance_match = re.search(distance_pattern, segment, re.IGNORECASE)
                 if distance_match:
-                    # Convert comma to period before converting to float
-                    distance_str = distance_match.group(1).replace(',', '.')
-                    distance = float(distance_str)
+                    distance = float(distance_match.group(1))
 
 
                 bearings.append({
