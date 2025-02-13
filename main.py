@@ -38,10 +38,12 @@ def extract_bearings_with_gpt(text):
     """Use GPT to extract bearings from text."""
     try:
         # Create a prompt that instructs GPT to find bearings
-        prompt = """Extract all bearings and distances from the following legal description text. 
+        prompt = """Extract all bearings, distances, and monuments from the following legal description text. 
         Format each bearing exactly like this example, one per line:
-        BEARING: North 45 degrees 30 minutes East DISTANCE: 100.00 feet
+        BEARING: North 45 degrees 30 minutes East DISTANCE: 100.00 feet MONUMENT: to an iron pin
         Note: Seconds are optional and should be omitted if not present in the text.
+        The monument is any description that appears after 'feet' and before 'thence' or 'running thence'.
+        If no monument is mentioned, leave it blank after MONUMENT:
 
         Text to analyze:
         """ + text
@@ -64,13 +66,18 @@ def extract_bearings_with_gpt(text):
         for line in result_text.split('\n'):
             if line.strip().startswith('BEARING:'):
                 try:
-                    # Split into bearing and distance parts
+                    # Split into bearing, distance, and monument parts
                     parts = line.split('DISTANCE:')
                     if len(parts) != 2:
                         continue
 
                     bearing_text = parts[0].replace('BEARING:', '').strip()
-                    distance_text = parts[1].strip()
+                    distance_monument_text = parts[1].strip()
+
+                    # Split distance and monument
+                    distance_parts = distance_monument_text.split('MONUMENT:', 1)
+                    distance_text = distance_parts[0].strip()
+                    monument_text = distance_parts[1].strip() if len(distance_parts) > 1 else ""
 
                     # Parse bearing components - make seconds optional
                     pattern = r'(North|South)\s+(\d+)\s*(?:°|degrees?|deg|\s)\s*(\d+)\s*(?:\'|′|minutes?|min|\s)\s*(?:(\d+)\s*(?:"|″|seconds?|sec|\s)\s+)?(East|West)'
@@ -92,6 +99,7 @@ def extract_bearings_with_gpt(text):
                             'seconds': sec,
                             'cardinal_ew': cardinal_ew,
                             'distance': distance,
+                            'monument': monument_text,
                             'original_text': line.strip()
                         }
                         bearings.append(bearing)
@@ -104,89 +112,6 @@ def extract_bearings_with_gpt(text):
         return bearings
     except Exception as e:
         st.error(f"Error using GPT to parse text: {str(e)}")
-        return []
-
-def process_pdf(uploaded_file):
-    """Process uploaded PDF file and extract bearings."""
-    try:
-        # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-            tmp_file.write(uploaded_file.getvalue())
-            pdf_path = tmp_file.name
-
-        # Convert PDF to images
-        images = convert_from_path(pdf_path)
-
-        # Store the first page image in session state
-        if images:
-            # Convert PIL image to bytes for display
-            img_byte_arr = BytesIO()
-            images[0].save(img_byte_arr, format='PNG')
-            img_byte_arr = img_byte_arr.getvalue()
-            st.session_state.pdf_image = img_byte_arr
-
-        # Extract text from each page
-        extracted_text = ""
-        for i, image in enumerate(images):
-            text = pytesseract.image_to_string(image)
-            extracted_text += f"\n--- Page {i+1} ---\n{text}\n"
-
-        # Clean up temporary file
-        os.unlink(pdf_path)
-
-        # Store extracted text in session state
-        st.session_state.extracted_text = extracted_text
-
-        # Extract supplemental information first
-        if os.environ.get("OPENAI_API_KEY"):
-            st.info("Extracting property information...")
-            try:
-                supplemental_info = extract_supplemental_info_with_gpt(extracted_text)
-                if supplemental_info:
-                    st.session_state.supplemental_info = supplemental_info
-                    st.success("Successfully extracted property information")
-            except Exception as e:
-                st.error(f"Error extracting property information: {str(e)}")
-
-        # First try GPT extraction for bearings
-        bearings = []
-        if os.environ.get("OPENAI_API_KEY"):
-            st.info("Using GPT to analyze the text for bearings...")
-            try:
-                bearings = extract_bearings_with_gpt(extracted_text)
-                if bearings:
-                    st.success(f"Successfully extracted {len(bearings)} bearings using GPT")
-                    # Store bearings in session state
-                    st.session_state.parsed_bearings = bearings
-                    # Automatically draw lines
-                    st.session_state.current_point = [0, 0]  # Reset starting point
-                    st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
-                    draw_lines_from_bearings()
-                    return bearings
-                else:
-                    st.warning("GPT analysis found no bearings, falling back to pattern matching...")
-            except Exception as e:
-                st.error(f"GPT analysis failed: {str(e)}, falling back to pattern matching...")
-        else:
-            st.warning("No OpenAI API key found, using pattern matching...")
-
-        # Only fall back to pattern matching if GPT failed or found nothing
-        st.info("Using pattern matching method...")
-        bearings = extract_bearings_from_text(extracted_text)
-        if bearings:
-            st.success(f"Found {len(bearings)} bearings using pattern matching")
-            # Store bearings in session state
-            st.session_state.parsed_bearings = bearings
-            # Automatically draw lines
-            st.session_state.current_point = [0, 0]  # Reset starting point
-            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
-            draw_lines_from_bearings()
-        else:
-            st.warning("No bearings found with pattern matching")
-
-        return bearings
-    except Exception as e:
-        st.error(f"Error processing PDF: {str(e)}")
         return []
 
 def extract_bearings_from_text(text):
@@ -217,15 +142,23 @@ def extract_bearings_from_text(text):
             if match:
                 cardinal_ns, deg, min, sec, cardinal_ew = match.groups()
 
-                # Look for distance in the same segment
+                # Look for distance and monument in the same segment
                 distance = 0.00  # Default distance
+                monument = ""    # Default monument
+
                 # More flexible distance pattern
                 distance_pattern = r'(\d+[.,\d]*)\s*(?:feet|ft|\')'
                 distance_match = re.search(distance_pattern, segment, re.IGNORECASE)
+
                 if distance_match:
                     # Remove all punctuation and add decimal point for 2 decimal places
                     distance_str = re.sub(r'[.,]', '', distance_match.group(1))
                     distance = float(distance_str) / 100  # Convert to decimal form
+
+                    # Look for monument after "feet" and before "thence"
+                    monument_match = re.search(r'(?:feet|ft|\')\s*(.*?)(?:\s+(?:running\s+)?thence|$)', segment[distance_match.end():], re.IGNORECASE)
+                    if monument_match:
+                        monument = monument_match.group(1).strip()
 
                 bearings.append({
                     'cardinal_ns': 'North' if cardinal_ns.lower() == 'north' else 'South',
@@ -234,6 +167,7 @@ def extract_bearings_from_text(text):
                     'seconds': int(sec),
                     'cardinal_ew': 'East' if cardinal_ew.lower() == 'east' else 'West',
                     'distance': distance,
+                    'monument': monument,
                     'original_text': segment.strip()
                 })
 
@@ -787,7 +721,7 @@ def main():
     with col2:
         if st.button("Show Land Lot", use_container_width=True):
             if st.session_state.extracted_text and os.environ.get("OPENAI_API_KEY"):
-                st.session_state.supplemental_info = extract_supplemental_info_withgpt(st.session_state.extracted_text)
+                st.session_state.supplemental_info = extract_supplemental_info_with_gpt(st.session_state.extracted_text)
                 if st.session_state.supplemental_info:
                     st.success("Successfully extracted supplemental information")
             else:
@@ -844,7 +778,7 @@ def main():
                     else:
                         st.error("Error: Generated DXF file is empty")
                 except Exception as e:
-                    st.error(f"Error creating DXF file: {str(e)}")
+                    st.error(f"Error creating DXDXF file: {str(e)}")
             else:
                 st.warning("Add some lines before exporting")
 
