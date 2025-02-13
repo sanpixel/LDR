@@ -372,7 +372,7 @@ def create_test_dxf():
 def initialize_session_state():
     """Initialize session state variables if they don't exist."""
     if 'lines' not in st.session_state:
-        st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'distance', 'bearing_desc', 'monument'])
+        st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance', 'monument'])
     if 'current_point' not in st.session_state:
         st.session_state.current_point = [0, 0]
     if 'gpt_analysis' not in st.session_state:
@@ -387,6 +387,8 @@ def initialize_session_state():
         st.session_state.supplemental_info = None
     if 'manual_bearing' not in st.session_state:
         st.session_state.manual_bearing = None
+    if 'line_count' not in st.session_state:
+        st.session_state.line_count = 4  # Start with 4 lines by default
 
 def draw_lines():
     """Create a Plotly figure with all lines."""
@@ -960,8 +962,10 @@ def main():
                 bearings = process_pdf(uploaded_file)
                 if bearings:
                     st.success(f"Found {len(bearings)} bearings in the PDF")
+                    # Update line count based on number of bearings found
+                    st.session_state.line_count = max(st.session_state.line_count, len(bearings))
                     # Initialize session state for all form fields
-                    for i in range(4):
+                    for i in range(st.session_state.line_count):
                         if i < len(bearings):
                             bearing = bearings[i]
                             st.session_state[f"cardinal_ns_{i}"] = bearing['cardinal_ns']
@@ -995,9 +999,22 @@ def main():
     # Line Drawing Section
     st.subheader("Draw Lines")
 
+    # Add Line button
+    if st.button("Add Line"):
+        st.session_state.line_count += 1
+        # Initialize new line fields
+        i = st.session_state.line_count - 1
+        st.session_state[f"cardinal_ns_{i}"] = "North"
+        st.session_state[f"degrees_{i}"] = 0
+        st.session_state[f"minutes_{i}"] = 0
+        st.session_state[f"seconds_{i}"] = 0
+        st.session_state[f"cardinal_ew_{i}"] = "East"
+        st.session_state[f"distance_{i}"] = 0.00
+        st.session_state[f"monument_{i}"] = ""
+
     # Create a container for all line inputs
     with st.container():
-        for line_num in range(4):
+        for line_num in range(st.session_state.line_count):
             st.write(f"Line {line_num + 1}")
             col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
 
@@ -1074,7 +1091,7 @@ def main():
 
             # Collect all valid manual bearings
             manual_bearings = []
-            for line_num in range(4):
+            for line_num in range(st.session_state.line_count):  # Use line_count instead of fixed 4
                 # Only process if distance is greater than 0
                 if st.session_state.get(f"distance_{line_num}", 0) > 0:
                     bearing = manual_bearing_input_to_parsed_format(
@@ -1126,6 +1143,7 @@ def main():
             st.session_state.pdf_image = None
             st.session_state.supplemental_info = None
             st.session_state.manual_bearing = None
+            st.session_state.line_count = 4 # Reset line count
 
             # Clear all input fields
             for i in range(4):
