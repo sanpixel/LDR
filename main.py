@@ -468,12 +468,13 @@ def create_rectangle(start_point, side_length):
     return pd.DataFrame(lines)
 
 def extract_supplemental_info_with_gpt(text):
-    """Use GPT to extract Land Lot # and District information."""
+    """Use GPT to extract Land Lot #, District, and County information."""
     try:
-        prompt = """Extract the Land Lot number and District information from the following text.
+        prompt = """Extract the Land Lot number, District, and County information from the following text.
         Format the response exactly like this example:
         Land Lot: 123
         District: 2nd
+        County: Fulton
 
         Text to analyze:
         """ + text
@@ -494,14 +495,17 @@ def extract_supplemental_info_with_gpt(text):
         # Parse the response
         land_lot = None
         district = None
+        county = None
 
         for line in result_text.split('\n'):
             if line.strip().startswith('Land Lot:'):
                 land_lot = line.replace('Land Lot:', '').strip()
             elif line.strip().startswith('District:'):
                 district = line.replace('District:', '').strip()
+            elif line.strip().startswith('County:'):
+                county = line.replace('County:', '').strip()
 
-        return {'land_lot': land_lot, 'district': district}
+        return {'land_lot': land_lot, 'district': district, 'county': county}
     except Exception as e:
         st.error(f"Error extracting supplemental info: {str(e)}")
         return None
@@ -732,6 +736,8 @@ def main():
             st.write(f"Land Lot: {st.session_state.supplemental_info['land_lot']}")
         if st.session_state.supplemental_info['district']:
             st.write(f"District: {st.session_state.supplemental_info['district']}")
+        if st.session_state.supplemental_info['county']:
+            st.write(f"County: {st.session_state.supplemental_info['county']}")
 
     # Display line data
     if not st.session_state.lines.empty:
