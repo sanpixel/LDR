@@ -773,7 +773,7 @@ def main():
                 )
 
     # Control Buttons
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
 
     # Draw Lines button
     with col1:
@@ -787,7 +787,7 @@ def main():
     with col2:
         if st.button("Show Land Lot", use_container_width=True):
             if st.session_state.extracted_text and os.environ.get("OPENAI_API_KEY"):
-                st.session_state.supplemental_info = extract_supplemental_info_with_gpt(st.session_state.extracted_text)
+                st.session_state.supplemental_info = extract_supplemental_info_withgpt(st.session_state.extracted_text)
                 if st.session_state.supplemental_info:
                     st.success("Successfully extracted supplemental information")
             else:
@@ -811,6 +811,26 @@ def main():
     # Export DXF button
     with col4:
         if st.button("Export DXF", use_container_width=True):
+            if not st.session_state.lines.empty:
+                try:
+                    dxf_data = create_dxf()
+                    if dxf_data and len(dxf_data) > 0:
+                        st.download_button(
+                            label="Download DXF",
+                            data=dxf_data,
+                            file_name="line_drawing.dxf",
+                            mime="application/octet-stream"
+                        )
+                    else:
+                        st.error("Error: Generated DXF file is empty")
+                except Exception as e:
+                    st.error(f"Error creating DXF file: {str(e)}")
+            else:
+                st.warning("Add some lines before exporting")
+
+    # New Export button
+    with col5:
+        if st.button("Export", use_container_width=True):
             if not st.session_state.lines.empty:
                 try:
                     dxf_data = create_dxf()
