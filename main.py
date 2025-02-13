@@ -399,57 +399,25 @@ def main():
             if bearings:
                 st.success(f"Found {len(bearings)} bearings in the PDF")
 
-                # Update form fields without using session state
+                # Initialize session state for all form fields
                 for i in range(4):
-                    col1, col2, col3, col4, col5, col6 = st.columns(6)
                     if i < len(bearings):
-                        bearing = bearings[i]
-                        # These values will be used as defaults in the number_input widgets
-                        col1.selectbox(
-                            "N/S",
-                            ["North", "South"],
-                            index=0 if bearing['cardinal_ns'] == 'North' else 1,
-                            key=f"cardinal_ns_{i}"
-                        )
-                        col2.number_input(
-                            "Deg",
-                            min_value=0,
-                            max_value=90,
-                            value=int(bearing['degrees']),
-                            step=1,
-                            format="%d",
-                            key=f"degrees_{i}"
-                        )
-                        col3.number_input(
-                            "Min",
-                            min_value=0,
-                            max_value=59,
-                            value=int(bearing['minutes']),
-                            format="%d",
-                            key=f"minutes_{i}"
-                        )
-                        col4.number_input(
-                            "Sec",
-                            min_value=0,
-                            max_value=59,
-                            value=int(bearing['seconds']),
-                            format="%d",
-                            key=f"seconds_{i}"
-                        )
-                        col5.selectbox(
-                            "E/W",
-                            ["East", "West"],
-                            index=0 if bearing['cardinal_ew'] == 'East' else 1,
-                            key=f"cardinal_ew_{i}"
-                        )
-                        col6.number_input(
-                            "Distance",
-                            min_value=0.0,
-                            value=float(bearing['distance']),
-                            format="%.2f",
-                            key=f"distance_{i}"
-                        )
-
+                        bearing = bearings[i]  # Get the correct bearing for this iteration
+                        # Ensure all values are properly typed
+                        st.session_state[f"cardinal_ns_{i}"] = bearing['cardinal_ns']
+                        st.session_state[f"degrees_{i}"] = int(bearing['degrees'])
+                        st.session_state[f"minutes_{i}"] = int(bearing['minutes'])
+                        st.session_state[f"seconds_{i}"] = int(bearing['seconds'])
+                        st.session_state[f"cardinal_ew_{i}"] = bearing['cardinal_ew']
+                        st.session_state[f"distance_{i}"] = float(bearing['distance'])
+                    else:
+                        # Initialize remaining fields to defaults
+                        st.session_state[f"cardinal_ns_{i}"] = "North"
+                        st.session_state[f"degrees_{i}"] = 0
+                        st.session_state[f"minutes_{i}"] = 0
+                        st.session_state[f"seconds_{i}"] = 0
+                        st.session_state[f"cardinal_ew_{i}"] = "East"
+                        st.session_state[f"distance_{i}"] = 0.00
 
     # Line Drawing Section
     st.subheader("Draw Lines")
