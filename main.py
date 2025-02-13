@@ -322,6 +322,8 @@ def create_dxf():
                 (0, 0),   # End at origin
                 dxfattribs={"layer": "POB_Arrow"}
             )
+            # Add circle at POB (origin)
+            msp.add_circle((0, 0), radius=0.5, dxfattribs={"layer": "Points"})
         except Exception as pob_error:
             st.warning(f"Error adding POB annotation: {str(pob_error)}")
 
@@ -331,7 +333,12 @@ def create_dxf():
             end = (float(row['end_x']), float(row['end_y']))
 
             try:
+                # Add the line
                 msp.add_line((start[0], start[1]), (end[0], end[1]), dxfattribs={"layer": "Lines"})
+
+                # Add circles at start and end points
+                msp.add_circle((start[0], start[1]), radius=0.5, dxfattribs={"layer": "Points"})
+                msp.add_circle((end[0], end[1]), radius=0.5, dxfattribs={"layer": "Points"})
             except Exception as line_error:
                 st.error(f"Error adding line {idx+1}: {str(line_error)}")
                 return None
