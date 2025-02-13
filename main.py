@@ -99,6 +99,14 @@ def process_pdf(uploaded_file):
         # Convert PDF to images
         images = convert_from_path(pdf_path)
 
+        # Store the first page image in session state
+        if images:
+            # Convert PIL image to bytes for display
+            img_byte_arr = BytesIO()
+            images[0].save(img_byte_arr, format='PNG')
+            img_byte_arr = img_byte_arr.getvalue()
+            st.session_state.pdf_image = img_byte_arr
+
         # Extract text from each page
         extracted_text = ""
         for i, image in enumerate(images):
@@ -328,6 +336,8 @@ def initialize_session_state():
         st.session_state.extracted_text = None
     if 'parsed_bearings' not in st.session_state:
         st.session_state.parsed_bearings = None
+    if 'pdf_image' not in st.session_state:
+        st.session_state.pdf_image = None
 
 def draw_lines():
     """Create a Plotly figure with all lines."""
@@ -673,6 +683,11 @@ def main():
     if not st.session_state.lines.empty:
         st.subheader("Line Data")
         st.dataframe(st.session_state.lines[['bearing_desc', 'distance']])
+
+    # Display PDF image if available
+    if st.session_state.pdf_image:
+        st.subheader("PDF Document")
+        st.image(st.session_state.pdf_image, caption="PDF First Page", use_column_width=True)
 
 if __name__ == "__main__":
     main()
