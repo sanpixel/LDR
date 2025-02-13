@@ -49,19 +49,7 @@ def extract_bearings_from_text(text):
             if match:
                 cardinal_ns, deg, min, sec, cardinal_ew = match.groups()
 
-                # Enhanced distance pattern to better handle variations in distance formatting
-                distance_pattern = r'(?:a\s+)?distance\s+of\s+(\d+[.,]\d+|\d+)\s*(?:feet|foot|ft)'
-                distance_match = re.search(distance_pattern, segment, re.IGNORECASE)
-
-                if distance_match:
-                    # Convert matched string to float
-                    distance_str = distance_match.group(1)
-                    st.write(f"Debug - Distance string: {distance_str}")
-                    distance = float(distance_str)
-                    # Format to exactly 2 decimal places
-                    distance = float(f"{distance:.2f}")
-                else:
-                    distance = 0.00
+                distance = 0.00 # Default distance
 
                 bearings.append({
                     'cardinal_ns': 'North' if cardinal_ns.lower() == 'north' else 'South',
@@ -381,7 +369,7 @@ def main():
         initial_sidebar_state="expanded",
         layout="wide"
     )
-    
+
     # Add CORS headers
     headers = {
         'Access-Control-Allow-Origin': '*',
@@ -390,7 +378,7 @@ def main():
     }
     for key, value in headers.items():
         st.markdown(f'<style>header {{-webkit-{key}: {value}; {key}: {value};}}</style>', unsafe_allow_html=True)
-    
+
     st.title("Line Drawing Application")
     initialize_session_state()
 
@@ -425,7 +413,7 @@ def main():
                         st.session_state[f"minutes_{i}"] = 0
                         st.session_state[f"seconds_{i}"] = 0
                         st.session_state[f"cardinal_ew_{i}"] = "East"
-                        st.session_state[f"distance_{i}"] = bearing['distance']
+                        st.session_state[f"distance_{i}"] = 0.00
 
     # Line Drawing Section
     st.subheader("Draw Lines")
@@ -511,18 +499,6 @@ def main():
                 # Calculate new endpoint
                 end_point = calculate_endpoint(st.session_state.current_point, bearing, distance)
 
-                # Extract distance from the text after bearing description
-                distance_pattern = r'(\d+(?:\.\d+)?)\s*feet'
-                st.write(f"Debug - Pattern searching for: {distance_pattern}")
-                distance_match = re.search(distance_pattern, bearing_desc)
-                st.write(f"Debug - Text searched in: {bearing_desc}")
-                
-                if distance_match:
-                    distance = float(distance_match.group(1))
-                    st.write(f"Debug - Found distance: {distance}")
-                else:
-                    distance = 0.00
-                    st.write("Debug - No distance match found")
 
                 # Create bearing description
                 bearing_desc = f"{st.session_state[f'cardinal_ns_{line_num}']} {st.session_state[f'degrees_{line_num}']}° {st.session_state[f'minutes_{line_num}']}' {st.session_state[f'seconds_{line_num}']}\" {st.session_state[f'cardinal_ew_{line_num}']}"
