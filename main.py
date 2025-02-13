@@ -398,10 +398,12 @@ def main():
             bearings = process_pdf(uploaded_file)
             if bearings:
                 st.success(f"Found {len(bearings)} bearings in the PDF")
+
                 # Initialize session state for all form fields
                 for i in range(4):
                     if i < len(bearings):
-                        bearing = bearings[i]
+                        bearing = bearings[i]  # Get the correct bearing for this iteration
+                        # Ensure all values are properly typed
                         st.session_state[f"cardinal_ns_{i}"] = bearing['cardinal_ns']
                         st.session_state[f"degrees_{i}"] = int(bearing['degrees'])
                         st.session_state[f"minutes_{i}"] = int(bearing['minutes'])
@@ -409,6 +411,7 @@ def main():
                         st.session_state[f"cardinal_ew_{i}"] = bearing['cardinal_ew']
                         st.session_state[f"distance_{i}"] = float(bearing['distance'])
                     else:
+                        # Initialize remaining fields to defaults
                         st.session_state[f"cardinal_ns_{i}"] = "North"
                         st.session_state[f"degrees_{i}"] = 0
                         st.session_state[f"minutes_{i}"] = 0
@@ -581,17 +584,6 @@ def main():
     if not st.session_state.lines.empty:
         st.subheader("Line Data")
         st.dataframe(st.session_state.lines[['bearing_desc', 'distance']])
-    
-    # PDF Processing Debug Information
-    if 'uploaded_file' in locals() and uploaded_file is not None:
-        st.subheader("PDF Processing Debug Information")
-        with st.expander("Show PDF Processing Details"):
-            st.write("Debug - Pattern searching for:", distance_pattern)
-            st.write("Debug - Text searched in:", bearing_desc)
-            if distance_match:
-                st.write("Debug - Found distance:", distance)
-            else:
-                st.write("Debug - No distance match found")
 
 if __name__ == "__main__":
     main()
