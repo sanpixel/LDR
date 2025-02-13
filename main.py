@@ -34,10 +34,6 @@ def extract_bearings_from_text(text):
         # Split by 'thence' to get individual bearings
         segments = [s.strip() for s in legal_desc.split('thence')]
 
-        # Display the segments for debugging
-        st.subheader("Extracted Segments")
-        for i, segment in enumerate(segments):
-            st.text(f"Segment {i}:\n{segment}")
 
         bearings = []
         # Pattern matches formats like "North 11 degrees 22 minutes 33 seconds East"
@@ -67,14 +63,6 @@ def extract_bearings_from_text(text):
                     'distance': distance,
                     'original_text': segment.strip()
                 })
-
-        # Display what we found
-        if bearings:
-            st.subheader("Found Bearings and Distances")
-            for i, bearing in enumerate(bearings):
-                st.text(f"Bearing {i+1}:\n{bearing['original_text']}\nDistance: {bearing['distance']:.2f} feet")
-        else:
-            st.warning("No bearings found in the expected format")
 
         return bearings
     except Exception as e:
@@ -106,6 +94,28 @@ def process_pdf(uploaded_file):
 
         # Extract bearings from text
         bearings = extract_bearings_from_text(extracted_text)
+
+        # First show success/failure of extraction
+        if bearings:
+            st.success(f"Successfully extracted {len(bearings)} bearings from the PDF")
+        else:
+            st.warning("No bearings found in the PDF")
+
+        # Display detailed extraction results at the end
+        if bearings:
+            # Show all extracted segments
+            st.expander("Show Extracted Segments", expanded=False)
+            for i, segment in enumerate(legal_desc.split('thence')):
+                st.text(f"Segment {i}:\n{segment}")
+
+            # Show found bearings and distances
+            st.expander("Show Found Bearings and Distances", expanded=False)
+            for i, bearing in enumerate(bearings):
+                st.text(f"""
+                Bearing {i+1}:
+                {bearing['original_text']}
+                Distance: {bearing['distance']:.2f} feet""")
+
         return bearings
     except Exception as e:
         st.error(f"Error processing PDF: {str(e)}")
@@ -174,16 +184,10 @@ def create_dxf():
         doc = ezdxf.new(setup=True)
         msp = doc.modelspace()
 
-        # Debug: Show how many lines we're processing
-        st.write(f"Processing {len(st.session_state.lines)} lines for DXF export")
-
         # Add each line
         for idx, row in st.session_state.lines.iterrows():
             start = (float(row['start_x']), float(row['start_y']))
             end = (float(row['end_x']), float(row['end_y']))
-
-            # Debug: Show coordinates being added
-            st.write(f"Adding line {idx+1}: ({start[0]}, {start[1]}) to ({end[0]}, {end[1]})")
 
             try:
                 msp.add_line((start[0], start[1]), (end[0], end[1]), dxfattribs={"layer": "Lines"})
@@ -397,7 +401,8 @@ def main():
         if st.button("Process PDF"):
             bearings = process_pdf(uploaded_file)
             if bearings:
-                st.success(f"Found {len(bearings)} bearings in the PDF")
+                #Move success message to process_pdf
+                #st.success(f"Found {len(bearings)} bearings in the PDF")
 
                 # Initialize session state for all form fields
                 for i in range(4):
