@@ -596,10 +596,14 @@ def draw_lines_from_bearings():
     st.session_state.current_point = [0, 0]
     st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance', 'monument'])
 
-    # If we have manual input, use that instead of parsed bearings
-    if 'manual_bearing' in st.session_state and st.session_state.manual_bearing:
-        bearing = st.session_state.manual_bearing
-        if bearing:  # Only draw if we have valid bearing data
+    # If we have parsed bearings from PDF or manual input, process them
+    bearings_to_process = st.session_state.parsed_bearings if st.session_state.parsed_bearings else []
+
+    # Process each bearing
+    for bearing in bearings_to_process:
+        # Only process lines with non-zero distance
+        distance = bearing['distance']
+        if distance > 0:
             # Convert DMS to decimal degrees
             bearing_decimal = dms_to_decimal(
                 bearing['degrees'],
@@ -610,7 +614,7 @@ def draw_lines_from_bearings():
             )
 
             # Calculate new endpoint
-            end_point = calculate_endpoint(st.session_state.current_point, bearing_decimal, bearing['distance'])
+            end_point = calculate_endpoint(st.session_state.current_point, bearing_decimal, distance)
 
             # Create bearing description
             bearing_desc = bearing['original_text']
@@ -623,49 +627,13 @@ def draw_lines_from_bearings():
                 'end_y': [end_point[1]],
                 'bearing': [bearing_decimal],
                 'bearing_desc': [bearing_desc],
-                'distance': [bearing['distance']],
+                'distance': [distance],
                 'monument': [bearing['monument']]
             })
             st.session_state.lines = pd.concat([st.session_state.lines, new_line], ignore_index=True)
 
             # Update current point
             st.session_state.current_point = end_point
-    # Otherwise use parsed bearings from PDF if available
-    elif st.session_state.parsed_bearings:
-        for line_num, bearing in enumerate(st.session_state.parsed_bearings):
-            # Only process lines with non-zero distance
-            distance = bearing['distance']
-            if distance > 0:
-                # Convert DMS to decimal degrees
-                bearing_decimal = dms_to_decimal(
-                    bearing['degrees'],
-                    bearing['minutes'],
-                    bearing['seconds'],
-                    bearing['cardinal_ns'],
-                    bearing['cardinal_ew']
-                )
-
-                # Calculate new endpoint
-                end_point = calculate_endpoint(st.session_state.current_point, bearing_decimal, distance)
-
-                # Create bearing description
-                bearing_desc = bearing['original_text']
-
-                # Add new line to DataFrame
-                new_line = pd.DataFrame({
-                    'start_x': [st.session_state.current_point[0]],
-                    'start_y': [st.session_state.current_point[1]],
-                    'end_x': [end_point[0]],
-                    'end_y': [end_point[1]],
-                    'bearing': [bearing_decimal],
-                    'bearing_desc': [bearing_desc],
-                    'distance': [distance],
-                    'monument': [bearing['monument']]
-                })
-                st.session_state.lines = pd.concat([st.session_state.lines, new_line], ignore_index=True)
-
-                # Update current point
-                st.session_state.current_point = end_point
 
 def process_pdf(uploaded_file):
     """Process uploaded PDF file and extract bearings."""
@@ -788,7 +756,7 @@ def export_cad():
                 # Add dimension
                 dim = doc.addObject("TechDraw::DrawViewDimension", f"Dimension_{idx+1}")
                 dim.Type = "Distance"
-                dim.X = (startx + end.x) / 2
+                dim.X = (start.x + end.x) / 2
                 dim.Y = (start.y + end.y) / 2
                 dim.Text = f"{row['distance']:.2f}'"
 
@@ -1104,7 +1072,8 @@ def main():
             st.session_state.current_point = [0, 0]
             st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance', 'monument'])
 
-            # Process each line input
+            # Collect all valid manual bearings
+            manual_bearings = []
             for line_num in range(4):
                 # Only process if distance is greater than 0
                 if st.session_state.get(f"distance_{line_num}", 0) > 0:
@@ -1118,8 +1087,12 @@ def main():
                         st.session_state.get(f"monument_{line_num}", "")
                     )
                     if bearing:
-                        st.session_state.manual_bearing = bearing
-                        draw_lines_from_bearings()
+                        manual_bearings.append(bearing)
+
+            # Set the manual bearings as parsed bearings and draw them
+            if manual_bearings:
+                st.session_state.parsed_bearings = manual_bearings
+                draw_lines_from_bearings()
 
     # Export buttons section
     with col2:
