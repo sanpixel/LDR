@@ -305,6 +305,26 @@ def create_dxf():
         doc = ezdxf.new(setup=True)
         msp = doc.modelspace()
 
+        # Add POB text and arrow
+        try:
+            # Add POB text
+            msp.add_text(
+                "POB",
+                dxfattribs={
+                    "layer": "Text",
+                    "height": 1.0,
+                    "insert": (3, -3)  # Offset from origin
+                }
+            )
+            # Add arrow to POB
+            msp.add_line(
+                (3, -3),  # Start at text location
+                (0, 0),   # End at origin
+                dxfattribs={"layer": "POB_Arrow"}
+            )
+        except Exception as pob_error:
+            st.warning(f"Error adding POB annotation: {str(pob_error)}")
+
         # Add each line
         for idx, row in st.session_state.lines.iterrows():
             start = (float(row['start_x']), float(row['start_y']))
