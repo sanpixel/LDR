@@ -580,6 +580,89 @@ def draw_lines_from_bearings():
             # Update current point
             st.session_state.current_point = end_point
 
+def process_pdf(uploaded_file):
+    """Process uploaded PDF file and extract bearings."""
+    try:
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+            tmp_file.write(uploaded_file.getvalue())
+            pdf_path = tmp_file.name
+
+        # Convert PDF to images
+        images = convert_from_path(pdf_path)
+
+        # Store the first page image in session state
+        if images:
+            # Convert PIL image to bytes for display
+            img_byte_arr = BytesIO()
+            images[0].save(img_byte_arr, format='PNG')
+            img_byte_arr = img_byte_arr.getvalue()
+            st.session_state.pdf_image = img_byte_arr
+
+        # Extract text from each page
+        extracted_text = ""
+        for i, image in enumerate(images):
+            text = pytesseract.image_to_string(image)
+            extracted_text += f"\n--- Page {i+1} ---\n{text}\n"
+
+        # Clean up temporary file
+        os.unlink(pdf_path)
+
+        # Store extracted text in session state
+        st.session_state.extracted_text = extracted_text
+
+        # Extract supplemental information first
+        if os.environ.get("OPENAI_API_KEY"):
+            st.info("Extracting property information...")
+            try:
+                supplemental_info = extract_supplemental_info_with_gpt(extracted_text)
+                if supplemental_info:
+                    st.session_state.supplemental_info = supplemental_info
+                    st.success("Successfully extracted property information")
+            except Exception as e:
+                st.error(f"Error extracting property information: {str(e)}")
+
+        # First try GPT extraction for bearings
+        bearings = []
+        if os.environ.get("OPENAI_API_KEY"):
+            st.info("Using GPT to analyze the text for bearings...")
+            try:
+                bearings = extract_bearings_with_gpt(extracted_text)
+                if bearings:
+                    st.success(f"Successfully extracted {len(bearings)} bearings using GPT")
+                    # Store bearings in session state
+                    st.session_state.parsed_bearings = bearings
+                    # Automatically draw lines
+                    st.session_state.current_point = [0, 0]  # Reset starting point
+                    st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
+                    draw_lines_from_bearings()
+                    return bearings
+                else:
+                    st.warning("GPT analysis found no bearings, falling back to pattern matching...")
+            except Exception as e:
+                st.error(f"GPT analysis failed: {str(e)}, falling back to pattern matching...")
+        else:
+            st.warning("No OpenAI API key found, using pattern matching...")
+
+        # Only fall back to pattern matching if GPT failed or found nothing
+        st.info("Using pattern matching method...")
+        bearings = extract_bearings_from_text(extracted_text)
+        if bearings:
+            st.success(f"Found {len(bearings)} bearings using pattern matching")
+            # Store bearings in session state
+            st.session_state.parsed_bearings = bearings
+            # Automatically draw lines
+            st.session_state.current_point = [0, 0]  # Reset starting point
+            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
+            draw_lines_from_bearings()
+        else:
+            st.warning("No bearings found with pattern matching")
+
+        return bearings
+    except Exception as e:
+        st.error(f"Error processing PDF: {str(e)}")
+        return []
+
 def main():
     # Configure Streamlit for file uploads
     st.set_page_config(
