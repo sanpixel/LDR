@@ -49,18 +49,14 @@ def extract_bearings_from_text(text):
             if match:
                 cardinal_ns, deg, min, sec, cardinal_ew = match.groups()
 
-                # Enhanced distance pattern to better handle variations in distance formatting
-                distance_pattern = r'(?:a\s+)?distance\s+of\s+(\d+[.,]\d+|\d+)\s*(?:feet|foot|ft)'
+                distance = 0.00 # Default distance
+                distance_pattern = r'(\d+[.,\d]*)\s*(?=feet)' # Match any number before 'feet'
                 distance_match = re.search(distance_pattern, segment, re.IGNORECASE)
-
                 if distance_match:
-                    # Replace comma with dot and convert to float
-                    distance_str = distance_match.group(1).replace(',', '.')
-                    distance = float(distance_str)
-                    # Format to exactly 2 decimal places
-                    distance = float(f"{distance:.2f}")
-                else:
-                    distance = 0.00
+                    # Remove all punctuation and add decimal point for 2 decimal places
+                    distance_str = re.sub(r'[.,]', '', distance_match.group(1))
+                    distance = float(distance_str) / 100  # Convert to decimal form
+
 
                 bearings.append({
                     'cardinal_ns': 'North' if cardinal_ns.lower() == 'north' else 'South',
@@ -374,6 +370,22 @@ def create_rectangle(start_point, side_length):
     return pd.DataFrame(lines)
 
 def main():
+    # Configure Streamlit for file uploads
+    st.set_page_config(
+        page_title="Line Drawing Application",
+        initial_sidebar_state="expanded",
+        layout="wide"
+    )
+
+    # Add CORS headers
+    headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+    }
+    for key, value in headers.items():
+        st.markdown(f'<style>header {{-webkit-{key}: {value}; {key}: {value};}}</style>', unsafe_allow_html=True)
+
     st.title("Line Drawing Application")
     initialize_session_state()
 
@@ -493,6 +505,7 @@ def main():
 
                 # Calculate new endpoint
                 end_point = calculate_endpoint(st.session_state.current_point, bearing, distance)
+
 
                 # Create bearing description
                 bearing_desc = f"{st.session_state[f'cardinal_ns_{line_num}']} {st.session_state[f'degrees_{line_num}']}° {st.session_state[f'minutes_{line_num}']}' {st.session_state[f'seconds_{line_num}']}\" {st.session_state[f'cardinal_ew_{line_num}']}"
