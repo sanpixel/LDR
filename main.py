@@ -789,7 +789,7 @@ def export_pdf():
     """Create a PDF file containing the line drawing and property information."""
     if st.session_state.lines.empty:
         st.error("No lines to export")
-        return None
+        returnNone
 
     try:
         # Create PDF buffer
@@ -1036,7 +1036,6 @@ def main():
                     if bearing:
                         manual_bearings.append(bearing)
 
-            # Set the manual bearings as parsed bearings and draw them
             if manual_bearings:
                 st.session_state.parsed_bearings = manual_bearings
                 draw_lines_from_bearings()
