@@ -788,7 +788,7 @@ def export_cad():
                 # Add dimension
                 dim = doc.addObject("TechDraw::DrawViewDimension", f"Dimension_{idx+1}")
                 dim.Type = "Distance"
-                dim.X = (start.x + end.x) / 2
+                dim.X = (startx + end.x) / 2
                 dim.Y = (start.y + end.y) / 2
                 dim.Text = f"{row['distance']:.2f}'"
 
@@ -977,51 +977,152 @@ def manual_bearing_input_to_parsed_format(cardinal_ns, degrees, minutes, seconds
 
 def main():
     st.title("Line Drawing Application")
-
-    # Initialize session state
     initialize_session_state()
 
-    # Manual input section
-    st.subheader("Manual Line Input")
-    col1, col2, col3 = st.columns(3)
+    # Create two columns for the main layout
+    col1, col2 = st.columns([2, 1])
 
     with col1:
-        cardinal_ns = st.selectbox("Cardinal Direction (N/S)", ["North", "South"])
-        degrees = st.number_input("Degrees", min_value=0, max_value=90, value=0)
+        # PDF Upload Section
+        st.subheader("Import PDF with Bearings")
+        uploaded_file = st.file_uploader("Choose a PDF file", type="pdf")
 
+        if uploaded_file is not None:
+            if st.button("Process PDF"):
+                bearings = process_pdf(uploaded_file)
+                if bearings:
+                    st.success(f"Found {len(bearings)} bearings in the PDF")
+                    # Initialize session state for all form fields
+                    for i in range(4):
+                        if i < len(bearings):
+                            bearing = bearings[i]
+                            st.session_state[f"cardinal_ns_{i}"] = bearing['cardinal_ns']
+                            st.session_state[f"degrees_{i}"] = int(bearing['degrees'])
+                            st.session_state[f"minutes_{i}"] = int(bearing['minutes'])
+                            st.session_state[f"seconds_{i}"] = int(bearing['seconds'])
+                            st.session_state[f"cardinal_ew_{i}"] = bearing['cardinal_ew']
+                            st.session_state[f"distance_{i}"] = float(bearing['distance'])
+                            st.session_state[f"monument_{i}"] = bearing.get('monument', '')
+                        else:
+                            # Initialize remaining fields to defaults
+                            st.session_state[f"cardinal_ns_{i}"] = "North"
+                            st.session_state[f"degrees_{i}"] = 0
+                            st.session_state[f"minutes_{i}"] = 0
+                            st.session_state[f"seconds_{i}"] = 0
+                            st.session_state[f"cardinal_ew_{i}"] = "East"
+                            st.session_state[f"distance_{i}"] = 0.00
+                            st.session_state[f"monument_{i}"] = ""
+
+    # Show extracted text and analysis in the second column if available
     with col2:
-        minutes = st.number_input("Minutes", min_value=0, max_value=59, value=0)
-        seconds = st.number_input("Seconds", min_value=0, max_value=59, value=0)
+        if st.session_state.extracted_text:
+            st.subheader("Extracted Text")
+            st.text_area("Raw Text", st.session_state.extracted_text, height=200)
 
-    with col3:
-        cardinal_ew = st.selectbox("Cardinal Direction (E/W)", ["East", "West"])
-        distance = st.number_input("Distance (feet)", min_value=0.0, value=0.0, format="%.2f")
+        if st.session_state.parsed_bearings:
+            st.subheader("Parsed Bearings")
+            for i, bearing in enumerate(st.session_state.parsed_bearings):
+                st.text(f"Line {i+1}: {bearing['original_text']}")
 
-    monument = st.text_input("Monument", "")
+    # Line Drawing Section
+    st.subheader("Draw Lines")
 
-    # Draw Lines button for manual input
-    if st.button("Draw Lines"):
-        # Convert manual input to bearing format
-        st.session_state.manual_bearing = manual_bearing_input_to_parsed_format(
-            cardinal_ns, degrees, minutes, seconds, cardinal_ew, distance, monument
-        )
-        draw_lines_from_bearings()
+    # Create a container for all line inputs
+    with st.container():
+        for line_num in range(4):
+            st.write(f"Line {line_num + 1}")
+            col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
 
-    # PDF upload section
-    st.subheader("Or Upload PDF")
-    uploaded_file = st.file_uploader("Choose a PDF file", type="pdf")
+            with col1:
+                cardinal_ns = st.selectbox(
+                    "N/S",
+                    ["North", "South"],
+                    key=f"cardinal_ns_{line_num}"
+                )
 
-    if uploaded_file is not None:
-        if st.button("Process PDF"):
-            process_pdf(uploaded_file)
+            with col2:
+                degrees = st.number_input(
+                    "Deg",
+                    min_value=0,
+                    max_value=90,
+                    value=st.session_state.get(f"degrees_{line_num}", 0),
+                    step=1,
+                    format="%d",
+                    key=f"degrees_{line_num}"
+                )
 
-    # Display line drawing if we have lines
-    if not st.session_state.lines.empty:
-        st.plotly_chart(draw_lines())
+            with col3:
+                minutes = st.number_input(
+                    "Min",
+                    min_value=0,
+                    max_value=59,
+                    value=st.session_state.get(f"minutes_{line_num}", 0),
+                    format="%d",
+                    key=f"minutes_{line_num}"
+                )
 
-    # Export buttons
-    col1, col2 = st.columns(2)
+            with col4:
+                seconds = st.number_input(
+                    "Sec",
+                    min_value=0,
+                    max_value=59,
+                    value=st.session_state.get(f"seconds_{line_num}", 0),
+                    format="%d",
+                    key=f"seconds_{line_num}"
+                )
+
+            with col5:
+                cardinal_ew = st.selectbox(
+                    "E/W",
+                    ["East", "West"],
+                    key=f"cardinal_ew_{line_num}"
+                )
+
+            with col6:
+                distance = st.number_input(
+                    "Distance",
+                    min_value=0.0,
+                    value=st.session_state.get(f"distance_{line_num}", 0.00),
+                    format="%.2f",
+                    key=f"distance_{line_num}"
+                )
+
+            with col7:
+                monument = st.text_input(
+                    "Monument",
+                    value=st.session_state.get(f"monument_{line_num}", ""),
+                    key=f"monument_{line_num}"
+                )
+
+    # Control Buttons
+    col1, col2, col3, col4 = st.columns(4)
+
+    # Draw Lines button
     with col1:
+        if st.button("Draw Lines", use_container_width=True):
+            # Reset current point and lines
+            st.session_state.current_point = [0, 0]
+            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance', 'monument'])
+
+            # Process each line input
+            for line_num in range(4):
+                # Only process if distance is greater than 0
+                if st.session_state.get(f"distance_{line_num}", 0) > 0:
+                    bearing = manual_bearing_input_to_parsed_format(
+                        st.session_state.get(f"cardinal_ns_{line_num}", "North"),
+                        st.session_state.get(f"degrees_{line_num}", 0),
+                        st.session_state.get(f"minutes_{line_num}", 0),
+                        st.session_state.get(f"seconds_{line_num}", 0),
+                        st.session_state.get(f"cardinal_ew_{line_num}", "East"),
+                        st.session_state.get(f"distance_{line_num}", 0.00),
+                        st.session_state.get(f"monument_{line_num}", "")
+                    )
+                    if bearing:
+                        st.session_state.manual_bearing = bearing
+                        draw_lines_from_bearings()
+
+    # Export buttons section
+    with col2:
         if st.button("Export DXF"):
             dxf_data = create_dxf()
             if dxf_data:
@@ -1032,16 +1133,56 @@ def main():
                     mime="application/dxf"
                 )
 
-    with col2:
-        if st.button("Export PDF"):
-            pdf_data = export_pdf()
-            if pdf_data:
-                st.download_button(
-                    label="Download PDF",
-                    data=pdf_data,
-                    file_name="survey_report.pdf",
-                    mime="application/pdf"
-                )
+    # Show Land Lot button
+    with col3:
+        if st.button("Show Land Lot", use_container_width=True):
+            if st.session_state.extracted_text and os.environ.get("OPENAI_API_KEY"):
+                st.session_state.supplemental_info = extract_supplemental_info_with_gpt(st.session_state.extracted_text)
+                if st.session_state.supplemental_info:
+                    st.json(st.session_state.supplemental_info)
+            else:
+                st.warning("Please process a PDF file first")
+
+    # Clear all button
+    with col4:
+        if st.button("Clear All", use_container_width=True):
+            st.session_state.current_point = [0, 0]
+            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance', 'monument'])
+            st.session_state.parsed_bearings = None
+            st.session_state.extracted_text = None
+            st.session_state.pdf_image = None
+            st.session_state.supplemental_info = None
+            st.session_state.manual_bearing = None
+
+            # Clear all input fields
+            for i in range(4):
+                st.session_state[f"cardinal_ns_{i}"] = "North"
+                st.session_state[f"degrees_{i}"] = 0
+                st.session_state[f"minutes_{i}"] = 0
+                st.session_state[f"seconds_{i}"] = 0
+                st.session_state[f"cardinal_ew_{i}"] = "East"
+                st.session_state[f"distance_{i}"] = 0.00
+                st.session_state[f"monument_{i}"] = ""
+
+    # Display the plot
+    fig = draw_lines()
+    st.plotly_chart(fig)
+
+    # Display supplemental information if available
+    if st.session_state.supplemental_info:
+        st.subheader("Property Information")
+        if st.session_state.supplemental_info['land_lot']:
+            st.write(f"Land Lot: {st.session_state.supplemental_info['land_lot']}")
+        if st.session_state.supplemental_info['district']:
+            st.write(f"District: {st.session_state.supplemental_info['district']}")
+        if st.session_state.supplemental_info['county']:
+            st.write(f"County: {st.session_state.supplemental_info['county']}")
+
+    # Display PDF image if available
+    if st.session_state.pdf_image:
+        st.subheader("PDF Document")
+        st.write("Please review your document shown below to verify the system correctly recognized the meets and bounds")
+        st.image(st.session_state.pdf_image, caption="PDF First Page", use_container_width=True)
 
 if __name__ == "__main__":
     main()
