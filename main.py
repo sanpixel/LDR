@@ -119,10 +119,21 @@ def process_pdf(uploaded_file):
         # Store extracted text in session state
         st.session_state.extracted_text = extracted_text
 
-        # First try GPT extraction
+        # Extract supplemental information first
+        if os.environ.get("OPENAI_API_KEY"):
+            st.info("Extracting property information...")
+            try:
+                supplemental_info = extract_supplemental_info_with_gpt(extracted_text)
+                if supplemental_info:
+                    st.session_state.supplemental_info = supplemental_info
+                    st.success("Successfully extracted property information")
+            except Exception as e:
+                st.error(f"Error extracting property information: {str(e)}")
+
+        # First try GPT extraction for bearings
         bearings = []
         if os.environ.get("OPENAI_API_KEY"):
-            st.info("Using GPT to analyze the text...")
+            st.info("Using GPT to analyze the text for bearings...")
             try:
                 bearings = extract_bearings_with_gpt(extracted_text)
                 if bearings:
