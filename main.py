@@ -366,14 +366,28 @@ def draw_lines():
 
     # Draw all lines
     for idx, row in st.session_state.lines.iterrows():
+        # Calculate midpoint for text position
+        mid_x = (row['start_x'] + row['end_x']) / 2
+        mid_y = (row['start_y'] + row['end_y']) / 2
+
+        # Add line
         fig.add_trace(go.Scatter(
             x=[row['start_x'], row['end_x']],
             y=[row['start_y'], row['end_y']],
-            mode='lines+text',
+            mode='lines',
             name=f'Line {idx+1}',
-            text=[f'Line {idx+1}: {row["bearing_desc"]}, {row["distance"]:.2f} units'], #Updated to 2 decimals
-            textposition='top center',
             line=dict(width=2)
+        ))
+
+        # Add text label
+        fig.add_trace(go.Scatter(
+            x=[mid_x],
+            y=[mid_y],
+            mode='text',
+            text=[f'Line {idx+1}: {row["bearing_desc"]}<br>{row["distance"]:.2f} ft'],
+            textposition='top center',
+            hoverinfo='text',
+            showlegend=False
         ))
 
         # Add points
