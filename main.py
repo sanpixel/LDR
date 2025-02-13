@@ -1211,5 +1211,11 @@ def main():
         st.subheader("Property Information")
         st.json(st.session_state.supplemental_info)
 
+    # Display PDF image if available
+    if st.session_state.pdf_image:
+        st.subheader("PDF Document")
+        st.write("Please review your document shown below to verify the system correctly recognized the meets and bounds")
+        st.image(st.session_state.pdf_image, caption="PDF First Page", use_container_width=True)
+
 if __name__ == "__main__":
     main()
