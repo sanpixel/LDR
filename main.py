@@ -296,7 +296,7 @@ def create_dxf():
                     base=(start[0] + offset_x, start[1] + offset_y),  # Base point (offset from line)
                     p1=start,    # Start point
                     p2=end,      # End point
-                    angle=np.degrees(angle),  # Angle in degrees
+                    angle=0,  # Angle in degrees (horizontal)
                     text=f"{row['distance']:.2f}'",  # Override dimension text
                     dimstyle='CUSTOM_STYLE',
                     override={
@@ -768,7 +768,7 @@ def main():
                             # Initialize remaining fields to defaults
                             st.session_state[f"cardinal_ns_{i}"] = "North"
                             st.session_state[f"degrees_{i}"] = 0
-                            st.session_state[f"minutes_{i}"] = 0
+                            st.session_state[f"minutes_{i}"] =0
                             st.session_state[f"seconds_{i}"] = 0
                             st.session_state[f"cardinal_ew_{i}"] = "East"
                             st.session_state[f"distance_{i}"] = 0.00
