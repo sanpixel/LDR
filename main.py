@@ -758,14 +758,10 @@ def main():
         if st.session_state.supplemental_info['county']:
             st.write(f"County: {st.session_state.supplemental_info['county']}")
 
-    # Display line data
-    if not st.session_state.lines.empty:
-        st.subheader("Line Data")
-        st.dataframe(st.session_state.lines[['bearing_desc', 'distance']])
-
     # Display PDF image if available
     if st.session_state.pdf_image:
         st.subheader("PDF Document")
+        st.write("Please review your document shown below to verify the system correctly recognized the meets and bounds")
         st.image(st.session_state.pdf_image, caption="PDF First Page", use_container_width=True)
 
 if __name__ == "__main__":
