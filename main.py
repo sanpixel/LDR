@@ -54,8 +54,9 @@ def extract_bearings_from_text(text):
                 distance_match = re.search(distance_pattern, segment, re.IGNORECASE)
 
                 if distance_match:
-                    # Replace comma with dot and convert to float
-                    distance_str = distance_match.group(1).replace(',', '.')
+                    # Convert matched string to float
+                    distance_str = distance_match.group(1)
+                    st.write(f"Debug - Distance string: {distance_str}")
                     distance = float(distance_str)
                     # Format to exactly 2 decimal places
                     distance = float(f"{distance:.2f}")
