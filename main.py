@@ -273,6 +273,31 @@ def create_dxf():
                 # Add circles at start and end points
                 msp.add_circle((start[0], start[1]), radius=0.5, dxfattribs={"layer": "Points"})
                 msp.add_circle((end[0], end[1]), radius=0.5, dxfattribs={"layer": "Points"})
+
+                # Add monument text if available (offset slightly from the points)
+                if idx > 0:  # For all points except POB
+                    # Add monument text at start point (from previous line's end)
+                    prev_row = st.session_state.lines.iloc[idx-1]
+                    if 'monument' in prev_row and prev_row['monument']:
+                        msp.add_text(
+                            prev_row['monument'],
+                            dxfattribs={
+                                "layer": "Monuments",
+                                "height": 0.8,
+                                "insert": (start[0] + 1, start[1] + 1)  # Offset text position
+                            }
+                        )
+
+                # Add monument text at end point of current line
+                if 'monument' in row and row['monument']:
+                    msp.add_text(
+                        row['monument'],
+                        dxfattribs={
+                            "layer": "Monuments",
+                            "height": 0.8,
+                            "insert": (end[0] + 1, end[1] + 1)  # Offset text position
+                        }
+                    )
             except Exception as line_error:
                 st.error(f"Error adding line {idx+1}: {str(line_error)}")
                 return None
@@ -325,7 +350,7 @@ def create_test_dxf():
 def initialize_session_state():
     """Initialize session state variables if they don't exist."""
     if 'lines' not in st.session_state:
-        st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'distance', 'bearing_desc'])
+        st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'distance', 'bearing_desc', 'monument'])
     if 'current_point' not in st.session_state:
         st.session_state.current_point = [0, 0]
     if 'gpt_analysis' not in st.session_state:
@@ -573,7 +598,8 @@ def draw_lines_from_bearings():
                 'end_y': [end_point[1]],
                 'bearing': [bearing_decimal],
                 'bearing_desc': [bearing_desc],
-                'distance': [distance]
+                'distance': [distance],
+                'monument': [bearing['monument']] #added monument
             })
             st.session_state.lines = pd.concat([st.session_state.lines, new_line], ignore_index=True)
 
@@ -634,7 +660,7 @@ def process_pdf(uploaded_file):
                     st.session_state.parsed_bearings = bearings
                     # Automatically draw lines
                     st.session_state.current_point = [0, 0]  # Reset starting point
-                    st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
+                    st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance', 'monument'])
                     draw_lines_from_bearings()
                     return bearings
                 else:
@@ -653,7 +679,7 @@ def process_pdf(uploaded_file):
             st.session_state.parsed_bearings = bearings
             # Automatically draw lines
             st.session_state.current_point = [0, 0]  # Reset starting point
-            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
+            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance', 'monument'])
             draw_lines_from_bearings()
         else:
             st.warning("No bearings found with pattern matching")
@@ -706,6 +732,7 @@ def main():
                             st.session_state[f"seconds_{i}"] = int(bearing['seconds'])
                             st.session_state[f"cardinal_ew_{i}"] = bearing['cardinal_ew']
                             st.session_state[f"distance_{i}"] = float(bearing['distance'])
+                            st.session_state[f"monument_{i}"] = bearing['monument'] #added monument
                         else:
                             # Initialize remaining fields to defaults
                             st.session_state[f"cardinal_ns_{i}"] = "North"
@@ -714,6 +741,8 @@ def main():
                             st.session_state[f"seconds_{i}"] = 0
                             st.session_state[f"cardinal_ew_{i}"] = "East"
                             st.session_state[f"distance_{i}"] = 0.00
+                            st.session_state[f"monument_{i}"] = "" #added monument
+
 
     # Show extracted text and analysis in the second column if available
     with col2:
@@ -733,7 +762,7 @@ def main():
     with st.container():
         for line_num in range(4):
             st.write(f"Line {line_num + 1}")
-            col1, col2, col3, col4, col5, col6 = st.columns(6)
+            col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
 
             with col1:
                 cardinal_ns = st.selectbox(
@@ -788,6 +817,12 @@ def main():
                     format="%.2f",  # Changed to always show 2 decimal places
                     key=f"distance_{line_num}"
                 )
+            with col7:
+                monument = st.text_input(
+                    "Monument",
+                    value=st.session_state.get(f"monument_{line_num}", ""),
+                    key=f"monument_{line_num}"
+                )
 
     # Control Buttons
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -797,7 +832,7 @@ def main():
         if st.button("Draw Lines", use_container_width=True):
             # Reset starting point and lines
             st.session_state.current_point = [0, 0]
-            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
+            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance', 'monument'])
             draw_lines_from_bearings()
 
     # Show Land Lot button
@@ -813,7 +848,7 @@ def main():
     # Clear all button
     with col3:
         if st.button("Clear All", use_container_width=True):
-            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
+            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance', 'monument'])
             st.session_state.current_point = [0, 0]
             st.session_state.supplemental_info = None
             # Reset all line input fields
@@ -824,6 +859,7 @@ def main():
                 st.session_state[f"seconds_{i}"] = 0
                 st.session_state[f"cardinal_ew_{i}"] = "East"
                 st.session_state[f"distance_{i}"] = 0.00
+                st.session_state[f"monument_{i}"] = ""
 
     # Export DXF button
     with col4:
