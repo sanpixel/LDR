@@ -382,6 +382,20 @@ def draw_lines():
     """Create a Plotly figure with all lines."""
     fig = go.Figure()
 
+    # Add POB annotation at origin
+    fig.add_annotation(
+        x=0,
+        y=0,
+        text="POB",
+        showarrow=True,
+        arrowhead=2,
+        ax=30,  # Offset x position for text
+        ay=-30,  # Offset y position for text
+        font=dict(size=14),
+        arrowsize=1.5,
+        arrowwidth=2
+    )
+
     # Draw all lines
     for idx, row in st.session_state.lines.iterrows():
         # Calculate midpoint for text position
