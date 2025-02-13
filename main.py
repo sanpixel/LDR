@@ -721,6 +721,14 @@ def main():
             st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
             st.session_state.current_point = [0, 0]
             st.session_state.supplemental_info = None
+            # Reset all line input fields
+            for i in range(4):
+                st.session_state[f"cardinal_ns_{i}"] = "North"
+                st.session_state[f"degrees_{i}"] = 0
+                st.session_state[f"minutes_{i}"] = 0
+                st.session_state[f"seconds_{i}"] = 0
+                st.session_state[f"cardinal_ew_{i}"] = "East"
+                st.session_state[f"distance_{i}"] = 0.00
 
     # Export DXF button
     with col4:
