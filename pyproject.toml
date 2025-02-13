@@ -11,6 +11,7 @@ dependencies = [
     "pdf2image>=1.17.0",
     "plotly>=6.0.0",
     "pytesseract>=0.3.13",
+    "reportlab>=4.3.1",
     "streamlit>=1.42.0",
     "trafilatura>=2.0.0",
     "twilio>=9.4.4",

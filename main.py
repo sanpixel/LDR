@@ -12,6 +12,13 @@ import tempfile
 import os
 from openai import OpenAI
 import json
+import io
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
 # Try to import FreeCAD, but don't fail if it's not available
 FREECAD_AVAILABLE = False
@@ -768,6 +775,616 @@ def export_cad():
         return None
 
 
+def export_pdf():
+    """Create a PDF file containing the line drawing and property information."""
+    if st.session_state.lines.empty:
+        st.error("No lines to export")
+        return None
+
+    try:
+        # Create PDF buffer
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=72)
+
+        # Create the story (content) for the PDF
+        story = []
+        styles = getSampleStyleSheet()
+
+        # Add title
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=16,
+            spaceAfter=30,
+            alignment=TA_CENTER
+        )
+        story.append(Paragraph("Property Survey Report", title_style))
+
+        # Add property information if available
+        if st.session_state.supplemental_info:
+            info_style = ParagraphStyle(
+                'InfoStyle',
+                parent=styles['Normal'],
+                fontSize=12,
+                spaceAfter=12,
+                alignment=TA_LEFT
+            )
+
+            # Create a table for property information
+            info_data = [
+                ["Land Lot:", str(st.session_state.supplemental_info.get('land_lot', 'N/A'))],
+                ["District:", str(st.session_state.supplemental_info.get('district', 'N/A'))],
+                ["County:", str(st.session_state.supplemental_info.get('county', 'N/A'))]
+            ]
+
+            info_table = Table(info_data, colWidths=[1.5*inch, 4*inch])
+            info_table.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ]))
+            story.append(info_table)
+            story.append(Spacer(1, 20))
+
+        # Add line drawing
+        fig = draw_lines()
+        # Update figure size for PDF
+        fig.update_layout(
+            width=500,
+            height=500,
+            margin=dict(l=20, r=20, t=20, b=20)
+        )
+
+        # Save the plot as a static image using base64 encoding
+        img_bytes = fig.to_image(format="png", engine="auto")
+        img_bio = io.BytesIO(img_bytes)
+        img = Image(img_bio, width=6*inch, height=6*inch)
+        story.append(img)
+
+        # Add bearing information
+        if not st.session_state.lines.empty:
+            story.append(Spacer(1, 20))
+            story.append(Paragraph("Survey Lines", styles['Heading2']))
+
+            # Create table for bearings
+            bearing_data = [["Line", "Bearing", "Distance", "Monument"]]
+            for idx, row in st.session_state.lines.iterrows():
+                bearing_data.append([
+                    f"Line {idx + 1}",
+                    format_bearing_concise(row['bearing_desc']),
+                    f"{row['distance']:.2f}'",
+                    row.get('monument', '')
+                ])
+
+            bearing_table = Table(bearing_data, colWidths=[1*inch, 2*inch, 1.5*inch, 2.5*inch])
+            bearing_table.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey90),
+            ]))
+            story.append(bearing_table)
+
+        # Build PDF
+        doc.build(story)
+        buffer.seek(0)
+        return buffer.getvalue()
+
+    except Exception as e:
+        st.error(f"PDF creation error: {str(e)}")
+        return None
+
+def initialize_session_state():
+    """Initialize session state variables if they don't exist."""
+    if 'lines' not in st.session_state:
+        st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'distance', 'bearing_desc', 'monument'])
+    if 'current_point' not in st.session_state:
+        st.session_state.current_point = [0, 0]
+    if 'gpt_analysis' not in st.session_state:
+        st.session_state.gpt_analysis = None
+    if 'extracted_text' not in st.session_state:
+        st.session_state.extracted_text = None
+    if 'parsed_bearings' not in st.session_state:
+        st.session_state.parsed_bearings = None
+    if 'pdf_image' not in st.session_state:
+        st.session_state.pdf_image = None
+    if 'supplemental_info' not in st.session_state:
+        st.session_state.supplemental_info = None
+
+def draw_lines():
+    """Create a Plotly figure with all lines."""
+    fig = go.Figure()
+
+    # Add POB annotation at origin
+    fig.add_annotation(
+        x=0,
+        y=0,
+        text="POB",
+        showarrow=True,
+        arrowhead=2,
+        ax=30,  # Offset x position for text
+        ay=-30,  # Offset y position for text
+        font=dict(size=14),
+        arrowsize=1.5,
+        arrowwidth=2
+    )
+
+    # Draw all lines
+    for idx, row in st.session_state.lines.iterrows():
+        # Calculate midpoint for text position
+        mid_x = (row['start_x'] + row['end_x']) / 2
+        mid_y = (row['start_y'] + row['end_y']) / 2
+
+        # Add line
+        fig.add_trace(go.Scatter(
+            x=[row['start_x'], row['end_x']],
+            y=[row['start_y'], row['end_y']],
+            mode='lines',
+            name=f'Line {idx+1}',
+            line=dict(width=2)
+        ))
+
+        # Add text label with concise bearing format
+        bearing_text = format_bearing_concise(row["bearing_desc"])
+        fig.add_trace(go.Scatter(
+            x=[mid_x],
+            y=[mid_y],
+            mode='text',
+            text=[f"{bearing_text}<br>{row['distance']:.2f} ft"],
+            textposition='top center',
+            hoverinfo='text',
+            showlegend=False
+        ))
+
+        # Add points
+        fig.add_trace(go.Scatter(
+            x=[row['start_x']],
+            y=[row['start_y']],
+            mode='markers',
+            name=f'Point {idx}',
+            marker=dict(size=8)
+        ))
+
+    # Add final point
+    if not st.session_state.lines.empty:
+        fig.add_trace(go.Scatter(
+            x=[st.session_state.lines.iloc[-1]['end_x']],
+            y=[st.session_state.lines.iloc[-1]['end_y']],
+            mode='markers',
+            name=f'Point {len(st.session_state.lines)}',
+            marker=dict(size=8)
+        ))
+
+    # Update layout with scroll/pan enabled and zoom disabled
+    fig.update_layout(
+        showlegend=False,
+        title='Line Drawing',
+        xaxis=dict(
+            showgrid=False,
+            zeroline=False,
+            showline=False,
+            showticklabels=False,
+            scaleanchor="y",
+            scaleratio=1,
+            constrain="domain"
+        ),
+        yaxis=dict(
+            showgrid=False,
+            zeroline=False,
+            showline=False,
+            showticklabels=False,
+            constrain="domain"
+        ),
+        width=800,
+        height=600,
+        dragmode='pan'  # Enable panning by default
+    )
+
+    # Configure interaction modes
+    fig.update_layout(
+        modebar=dict(
+            remove=['zoomIn', 'zoomOut', 'autoScale'],
+            add=['pan']
+        )
+    )
+
+    return fig
+
+def create_rectangle(start_point, side_length):
+    """Create a rectangle-like shape with slightly randomized angles that closes back to start."""
+    lines = []
+    current = start_point
+    first_point = start_point
+
+    # Define three slightly randomized directions
+    directions = [
+        ("North", np.random.randint(0, 15), np.random.randint(0, 60), np.random.randint(0, 60), "East"),    # ~North
+        ("North", np.random.randint(75, 90), np.random.randint(0, 60), np.random.randint(0, 60), "East"),   # ~East
+        ("South", np.random.randint(0, 15), np.random.randint(0, 60), np.random.randint(0, 60), "East"),    # ~South
+    ]
+
+    # Draw first three lines with random angles
+    for cardinal_ns, deg, min, sec, cardinal_ew in directions:
+        # Convert DMS to decimal
+        bearing = dms_to_decimal(deg, min, sec, cardinal_ns, cardinal_ew)
+
+        # Calculate endpoint
+        end_point = calculate_endpoint(current, bearing, side_length)
+
+        # Create bearing description
+        bearing_desc = f"{cardinal_ns} {deg}° {min}' {sec}\" {cardinal_ew}"
+
+        # Add line
+        lines.append({
+            'start_x': current[0],
+            'start_y': current[1],
+            'end_x': end_point[0],
+            'end_y': end_point[1],
+            'bearing': bearing,
+            'bearing_desc': bearing_desc,
+            'distance': side_length
+        })
+
+        current = end_point
+
+    # Calculate the bearing and distance for the closing line
+    dx = first_point[0] - current[0]
+    dy = first_point[1] - current[1]
+    closing_distance = np.sqrt(dx*dx + dy*dy)
+    closing_bearing = np.degrees(np.arctan2(dx, dy)) % 360
+
+    # Convert the closing bearing to DMS format
+    cardinal_ns, deg, min, sec, cardinal_ew = decimal_to_dms(closing_bearing)
+    bearing_desc = f"{cardinal_ns} {deg}° {min}' {sec}\" {cardinal_ew}"
+
+    # Add the closing line
+    lines.append({
+        'start_x': current[0],
+        'start_y': current[1],
+        'end_x': first_point[0],
+        'end_y': first_point[1],
+        'bearing': closing_bearing,
+        'bearing_desc': bearing_desc,
+        'distance': closing_distance
+    })
+
+    return pd.DataFrame(lines)
+
+def extract_supplemental_info_with_gpt(text):
+    """Use GPT to extract Land Lot #, District, and County information."""
+    try:
+        prompt = """Extract the Land Lot number, District, and County information from the following text.
+        Format the response exactly like this example:
+        Land Lot: 123
+        District: 2nd
+        County: Fulton
+
+        Text to analyze:
+        """ + text
+
+        # Call GPT-4 with the prompt
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[{
+                "role": "user",
+                "content": prompt
+            }],
+            temperature=0
+        )
+
+        # Get the response text
+        result_text = response.choices[0].message.content
+
+        # Parse the response
+        land_lot = None
+        district = None
+        county = None
+
+        for line in result_text.split('\n'):
+            if line.strip().startswith('Land Lot:'):
+                land_lot = line.replace('Land Lot:', '').strip()
+            elif line.strip().startswith('District:'):
+                district = line.replace('District:', '').strip()
+            elif line.strip().startswith('County:'):
+                county = line.replace('County:', '').strip()
+
+        return {'land_lot': land_lot, 'district': district, 'county': county}
+    except Exception as e:
+        st.error(f"Error extracting supplemental info: {str(e)}")
+        return None
+
+def draw_lines_from_bearings():
+    """Draw lines using the parsed bearings from session state."""
+    if not st.session_state.parsed_bearings:
+        return
+
+    for line_num, bearing in enumerate(st.session_state.parsed_bearings):
+        # Only process lines with non-zero distance
+        distance = bearing['distance']
+        if distance > 0:
+            # Convert DMS to decimal degrees
+            bearing_decimal = dms_to_decimal(
+                bearing['degrees'],
+                bearing['minutes'],
+                bearing['seconds'],
+                bearing['cardinal_ns'],
+                bearing['cardinal_ew']
+            )
+
+            # Calculate new endpoint
+            end_point = calculate_endpoint(st.session_state.current_point, bearing_decimal, distance)
+
+            # Create bearing description
+            bearing_desc = bearing['original_text']
+
+            # Add new line to DataFrame
+            new_line = pd.DataFrame({
+                'start_x': [st.session_state.current_point[0]],
+                'start_y': [st.session_state.current_point[1]],
+                'end_x': [end_point[0]],
+                'end_y': [end_point[1]],
+                'bearing': [bearing_decimal],
+                'bearing_desc': [bearing_desc],
+                'distance': [distance],
+                'monument': [bearing['monument']] #added monument
+            })
+            st.session_state.lines = pd.concat([st.session_state.lines, new_line], ignore_index=True)
+
+            # Update current point
+            st.session_state.current_point = end_point
+
+def process_pdf(uploaded_file):
+    """Process uploaded PDF file and extract bearings."""
+    try:
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+            tmp_file.write(uploaded_file.getvalue())
+            pdf_path = tmp_file.name
+
+        # Convert PDF to images
+        images = convert_from_path(pdf_path)
+
+        # Store the first page image in session state
+        if images:
+            # Convert PIL image to bytes for display
+            img_byte_arr = BytesIO()
+            images[0].save(img_byte_arr, format='PNG')
+            img_byte_arr = img_byte_arr.getvalue()
+            st.session_state.pdf_image = img_byte_arr
+
+        # Extract text from each page
+        extracted_text = ""
+        for i, image in enumerate(images):
+            text = pytesseract.image_to_string(image)
+            extracted_text += f"\n--- Page {i+1} ---\n{text}\n"
+
+        # Clean up temporary file
+        os.unlink(pdf_path)
+
+        # Store extracted text in session state
+        st.session_state.extracted_text = extracted_text
+
+        # Extract supplemental information first
+        if os.environ.get("OPENAI_API_KEY"):
+            st.info("Extracting property information...")
+            try:
+                supplemental_info = extract_supplemental_info_with_gpt(extracted_text)
+                if supplemental_info:
+                    st.session_state.supplemental_info = supplemental_info
+                    st.success("Successfully extracted property information")
+            except Exception as e:
+                st.error(f"Error extracting property information: {str(e)}")
+
+        # First try GPT extraction for bearings
+        bearings = []
+        if os.environ.get("OPENAI_API_KEY"):
+            st.info("Using GPT to analyze the text for bearings...")
+            try:
+                bearings = extract_bearings_with_gpt(extracted_text)
+                if bearings:
+                    st.success(f"Successfully extracted {len(bearings)} bearings using GPT")
+                    # Store bearings in session state
+                    st.session_state.parsed_bearings = bearings
+                    # Automatically draw lines
+                    st.session_state.current_point = [0, 0]  # Reset starting point
+                    st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance', 'monument'])
+                    draw_lines_from_bearings()
+                    return bearings
+                else:
+                    st.warning("GPT analysis found no bearings, falling back to pattern matching...")
+            except Exception as e:
+                st.error(f"GPT analysis failed: {str(e)}, falling back to pattern matching...")
+        else:
+            st.warning("No OpenAI API key found, using pattern matching...")
+
+        # Only fall back to pattern matching if GPT failed or found nothing
+        st.info("Using pattern matching method...")
+        bearings = extract_bearings_from_text(extracted_text)
+        if bearings:
+            st.success(f"Found {len(bearings)} bearings using pattern matching")
+            # Store bearings in session state
+            st.session_state.parsed_bearings = bearings
+            # Automatically draw lines
+            st.session_state.current_point = [0, 0]  # Reset starting point
+            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance', 'monument'])
+            draw_lines_from_bearings()
+        else:
+            st.warning("No bearings found with pattern matching")
+
+        return bearings
+    except Exception as e:
+        st.error(f"Error processing PDF: {str(e)}")
+        return []
+
+def export_cad():
+    """Create a CAD file using FreeCAD."""
+    if not FREECAD_AVAILABLE:
+        st.error("FreeCAD is not available. Please use DXF export instead.")
+        return None
+
+    if st.session_state.lines.empty:
+        st.error("No lines to export")
+        return None
+
+    try:
+        # Create a new FreeCAD document
+        doc = FreeCAD.newDocument("LineDrawing")
+
+        # Add POB point
+        pob = Part.makeVertex(0, 0, 0)
+        pob_obj = doc.addObject("Part::Feature", "POB")
+        pob_obj.Shape = pob
+
+        # Add POB label
+        label = doc.addObject("App::Annotation", "POB_Label")
+        label.LabelText = "POB"
+        label.Position = FreeCAD.Vector(3, -3, 0)
+
+        # Add each line
+        for idx, row in st.session_state.lines.iterrows():
+            try:
+                # Create line
+                start = FreeCAD.Vector(float(row['start_x']), float(row['start_y']), 0)
+                end = FreeCAD.Vector(float(row['end_x']), float(row['end_y']), 0)
+                line = Part.LineSegment(start, end)
+
+                # Add line to document
+                line_obj = doc.addObject("Part::Feature", f"Line_{idx+1}")
+                line_obj.Shape = Part.Shape([line])
+
+                # Add dimension
+                dim = doc.addObject("TechDraw::DrawViewDimension", f"Dimension_{idx+1}")
+                dim.Type = "Distance"
+                dim.X = (start.x + end.x) / 2
+                dim.Y = (start.y + end.y) / 2
+                dim.Text = f"{row['distance']:.2f}'"
+
+                # Add monument text if available
+                if 'monument' in row and row['monument']:
+                    monument = doc.addObject("App::Annotation", f"Monument_{idx+1}")
+                    monument.LabelText = row['monument']
+                    monument.Position = FreeCAD.Vector(end.x + 1, end.y + 1, 0)
+
+            except Exception as line_error:
+                st.warning(f"Error adding line {idx+1}: {str(line_error)}")
+                continue
+
+        # Save the file
+        filename = "line_drawing.FCStd"
+        doc.saveAs(filename)
+
+        # Read the file back for download
+        with open(filename, 'rb') as f:
+            return f.read()
+
+    except Exception as e:
+        st.error(f"CAD creation error: {str(e)}")
+        return None
+
+
+def export_pdf():
+    """Create a PDF file containing the line drawing and property information."""
+    if st.session_state.lines.empty:
+        st.error("No lines to export")
+        return None
+
+    try:
+        # Create PDF buffer
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=72)
+
+        # Create the story (content) for the PDF
+        story = []
+        styles = getSampleStyleSheet()
+
+        # Add title
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=16,
+            spaceAfter=30,
+            alignment=TA_CENTER
+        )
+        story.append(Paragraph("Property Survey Report", title_style))
+
+        # Add property information if available
+        if st.session_state.supplemental_info:
+            info_style = ParagraphStyle(
+                'InfoStyle',
+                parent=styles['Normal'],
+                fontSize=12,
+                spaceAfter=12,
+                alignment=TA_LEFT
+            )
+
+            # Create a table for property information
+            info_data = [
+                ["Land Lot:", str(st.session_state.supplemental_info.get('land_lot', 'N/A'))],
+                ["District:", str(st.session_state.supplemental_info.get('district', 'N/A'))],
+                ["County:", str(st.session_state.supplemental_info.get('county', 'N/A'))]
+            ]
+
+            info_table = Table(info_data, colWidths=[1.5*inch, 4*inch])
+            info_table.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ]))
+            story.append(info_table)
+            story.append(Spacer(1, 20))
+
+        # Add line drawing
+        fig = draw_lines()
+        # Update figure size for PDF
+        fig.update_layout(
+            width=500,
+            height=500,
+            margin=dict(l=20, r=20, t=20, b=20)
+        )
+
+        # Save the plot as a static image using base64 encoding
+        img_bytes = fig.to_image(format="png", engine="auto")
+        img_bio = io.BytesIO(img_bytes)
+        img = Image(img_bio, width=6*inch, height=6*inch)
+        story.append(img)
+
+        # Add bearing information
+        if not st.session_state.lines.empty:
+            story.append(Spacer(1, 20))
+            story.append(Paragraph("Survey Lines", styles['Heading2']))
+
+            # Create table for bearings
+            bearing_data = [["Line", "Bearing", "Distance", "Monument"]]
+            for idx, row in st.session_state.lines.iterrows():
+                bearing_data.append([
+                    f"Line {idx + 1}",
+                    format_bearing_concise(row['bearing_desc']),
+                    f"{row['distance']:.2f}'",
+                    row.get('monument', '')
+                ])
+
+            bearing_table = Table(bearing_data, colWidths=[1*inch, 2*inch, 1.5*inch, 2.5*inch])
+            bearing_table.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey90),
+            ]))
+            story.append(bearing_table)
+
+        # Build PDF
+        doc.build(story)
+        buffer.seek(0)
+        return buffer.getvalue()
+
+    except Exception as e:
+        st.error(f"PDF creation error: {str(e)}")
+        return None
+
 def main():
     # Configure Streamlit for file uploads
     st.set_page_config(
@@ -944,6 +1561,19 @@ def main():
                         mime="application/dxf"
                     )
 
+            # PDF export
+            if st.button("Export PDF", use_container_width=True):
+                st.info("Creating PDF report...")
+                pdf_file = export_pdf()
+                if pdf_file:
+                    st.success("PDF report created successfully!")
+                    st.download_button(
+                        label="Download PDF",
+                        data=pdf_file,
+                        file_name="property_survey.pdf",
+                        mime="application/pdf"
+                    )
+
     # Show Land Lot button
     with col3:
         if st.button("Show Land Lot", use_container_width=True):
@@ -969,7 +1599,7 @@ def main():
     st.plotly_chart(fig)
 
     # Display supplemental information if available
-    if st.session_state.supplemental_info:
+    if st.session_state.supplemental_info:  # Fixed typo
         st.subheader("Property Information")
         if st.session_state.supplemental_info['land_lot']:
             st.write(f"Land Lot: {st.session_state.supplemental_info['land_lot']}")
