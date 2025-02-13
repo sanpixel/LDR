@@ -58,9 +58,12 @@ def extract_bearings_with_gpt(text):
                     bearing_text = parts[0].replace('BEARING:', '').strip()
                     distance_text = parts[1].strip()
 
+                    # Debug: Show what we're trying to parse
+                    st.text(f"\nAttempting to parse:\nBearing text: {bearing_text}\nDistance text: {distance_text}")
+
                     # Parse bearing components - make seconds optional
-                    pattern = r'(North|South)\s+(\d+)\s+degrees\s+(\d+)\s+minutes(?:\s+(\d+)\s+seconds)?\s+(East|West)'
-                    match = re.search(pattern, bearing_text)
+                    pattern = r'(North|South)\s+(\d+)\s*(?:°|degrees|deg|\s)\s*(\d+)\s*(?:\'|′|minutes|min|\s)\s*(?:(\d+)\s*(?:"|″|seconds|sec|\s)\s+)?(East|West)'
+                    match = re.search(pattern, bearing_text, re.IGNORECASE)
 
                     if match:
                         cardinal_ns, deg, min, sec, cardinal_ew = match.groups()
@@ -68,10 +71,10 @@ def extract_bearings_with_gpt(text):
                         sec = int(sec) if sec else 0
 
                         # Parse distance
-                        distance_match = re.search(r'(\d+(?:\.\d+)?)\s*feet', distance_text)
+                        distance_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:feet|ft|\')', distance_text, re.IGNORECASE)
                         distance = float(distance_match.group(1)) if distance_match else 0.00
 
-                        bearings.append({
+                        bearing = {
                             'cardinal_ns': cardinal_ns,
                             'degrees': int(deg),
                             'minutes': int(min),
@@ -79,10 +82,24 @@ def extract_bearings_with_gpt(text):
                             'cardinal_ew': cardinal_ew,
                             'distance': distance,
                             'original_text': line.strip()
-                        })
+                        }
+                        bearings.append(bearing)
+
+                        # Debug: Show successful parse
+                        st.text(f"Successfully parsed bearing {len(bearings)}:")
+                        st.json(bearing)
+                    else:
+                        st.warning(f"Could not match bearing pattern in: {bearing_text}")
                 except Exception as parse_error:
                     st.warning(f"Could not parse line: {line}\nError: {str(parse_error)}")
                     continue
+
+        # Debug output for all parsed bearings
+        st.subheader("All Parsed Bearings")
+        st.text(f"Total bearings found: {len(bearings)}")
+        for i, bearing in enumerate(bearings):
+            st.text(f"Bearing {i+1}:")
+            st.json(bearing)
 
         return bearings
 
