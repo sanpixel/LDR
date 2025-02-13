@@ -769,7 +769,7 @@ def main():
                             st.session_state[f"cardinal_ns_{i}"] = "North"
                             st.session_state[f"degrees_{i}"] = 0
                             st.session_state[f"minutes_{i}"] =0
-                            st.session_state[f"seconds_{i}"] = 0
+                            stsession_state[f"seconds_{i}"] = 0
                             st.session_state[f"cardinal_ew_{i}"] = "East"
                             st.session_state[f"distance_{i}"] = 0.00
                             st.session_state[f"monument_{i}"] = "" #added monument
