@@ -637,7 +637,7 @@ def main():
                 )
 
     # Control Buttons
-    col1, col2, col3, col4, col5 = st.columns(5)
+    col1, col2, col3, col4 = st.columns(4)
 
     # Draw Lines button
     with col1:
@@ -676,9 +676,9 @@ def main():
                     # Update current point
                     st.session_state.current_point = end_point
 
-    # Add Supplemental Text button
+    # Show Land Lot button
     with col2:
-        if st.button("Add Supplemental Text", use_container_width=True):
+        if st.button("Show Land Lot", use_container_width=True):
             if st.session_state.extracted_text and os.environ.get("OPENAI_API_KEY"):
                 st.session_state.supplemental_info = extract_supplemental_info_with_gpt(st.session_state.extracted_text)
                 if st.session_state.supplemental_info:
@@ -686,25 +686,15 @@ def main():
             else:
                 st.warning("Please process a PDF file first")
 
-    # Add Rectangle button
-    with col3:
-        if st.button("Add Rectangle", use_container_width=True):
-            if st.session_state.get(f"distance_0", 0) > 0:
-                rectangle_lines = create_rectangle(st.session_state.current_point, st.session_state[f"distance_0"])
-                st.session_state.lines = pd.concat([st.session_state.lines, rectangle_lines], ignore_index=True)
-                st.session_state.current_point = [st.session_state.current_point[0], st.session_state.current_point[1]]
-            else:
-                st.error("Distance must be greater than 0")
-
     # Clear all button
-    with col4:
+    with col3:
         if st.button("Clear All", use_container_width=True):
             st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
             st.session_state.current_point = [0, 0]
             st.session_state.supplemental_info = None
 
     # Export DXF button
-    with col5:
+    with col4:
         if st.button("Export DXF", use_container_width=True):
             if not st.session_state.lines.empty:
                 try:
