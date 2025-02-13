@@ -785,7 +785,6 @@ def export_cad():
         return None
 
 
-
 def export_pdf():
     """Create a PDF file containing the line drawing and property information."""
     if st.session_state.lines.empty:
@@ -951,7 +950,7 @@ def main():
     initialize_session_state()
 
     # Create two columns for the main layout
-    col1, col2, col3, col4 = st.columns(4) # Added one more column
+    col1, col2 = st.columns([2, 1])
 
     with col1:
         # PDF Upload Section
@@ -999,19 +998,6 @@ def main():
 
     # Line Drawing Section
     st.subheader("Draw Lines")
-
-    # Add Line button
-    if st.button("Add Line"):
-        st.session_state.line_count += 1
-        # Initialize new line fields
-        i = st.session_state.line_count - 1
-        st.session_state[f"cardinal_ns_{i}"] = "North"
-        st.session_state[f"degrees_{i}"] = 0
-        st.session_state[f"minutes_{i}"] = 0
-        st.session_state[f"seconds_{i}"] = 0
-        st.session_state[f"cardinal_ew_{i}"] = "East"
-        st.session_state[f"distance_{i}"] = 0.00
-        st.session_state[f"monument_{i}"] = ""
 
     # Create a container for all line inputs
     with st.container():
@@ -1080,10 +1066,14 @@ def main():
                     key=f"monument_{line_num}"
                 )
 
-    # Control Buttons
-    col1, col2, col3, col4 = st.columns(4)
+    # Display the plot
+    fig = draw_lines()
+    st.plotly_chart(fig)
 
-    # Draw Lines button
+    # Action Buttons Section at the bottom
+    st.subheader("Actions")
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
+
     with col1:
         if st.button("Draw Lines", use_container_width=True):
             # Reset current point and lines
@@ -1092,8 +1082,7 @@ def main():
 
             # Collect all valid manual bearings
             manual_bearings = []
-            for line_num in range(st.session_state.line_count):  # Use line_count instead of fixed 4
-                # Only process if distance is greater than 0
+            for line_num in range(st.session_state.line_count):
                 if st.session_state.get(f"distance_{line_num}", 0) > 0:
                     bearing = manual_bearing_input_to_parsed_format(
                         st.session_state.get(f"cardinal_ns_{line_num}", "North"),
@@ -1112,9 +1101,8 @@ def main():
                 st.session_state.parsed_bearings = manual_bearings
                 draw_lines_from_bearings()
 
-    # Export buttons section
     with col2:
-        if st.button("Export DXF"):
+        if st.button("Export DXF", use_container_width=True):
             dxf_data = create_dxf()
             if dxf_data:
                 st.download_button(
@@ -1124,9 +1112,8 @@ def main():
                     mime="application/dxf"
                 )
 
-    # Add PDF export button
     with col3:
-        if st.button("Export PDF"):
+        if st.button("Export PDF", use_container_width=True):
             pdf_data = export_pdf()
             if pdf_data:
                 st.download_button(
@@ -1136,7 +1123,6 @@ def main():
                     mime="application/pdf"
                 )
 
-    # Show Land Lot button
     with col4:
         if st.button("Show Land Lot", use_container_width=True):
             if st.session_state.extracted_text and os.environ.get("OPENAI_API_KEY"):
@@ -1146,9 +1132,39 @@ def main():
             else:
                 st.warning("Please process a PDF file first")
 
-    # Display the plot
-    fig = draw_lines()
-    st.plotly_chart(fig)
+    with col5:
+        if st.button("Clear All", use_container_width=True):
+            st.session_state.current_point = [0, 0]
+            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance', 'monument'])
+            st.session_state.parsed_bearings = None
+            st.session_state.extracted_text = None
+            st.session_state.pdf_image = None
+            st.session_state.supplemental_info = None
+            st.session_state.manual_bearing = None
+            st.session_state.line_count = 4  # Reset line count
+
+            # Clear all input fields
+            for i in range(4):
+                st.session_state[f"cardinal_ns_{i}"] = "North"
+                st.session_state[f"degrees_{i}"] = 0
+                st.session_state[f"minutes_{i}"] = 0
+                st.session_state[f"seconds_{i}"] = 0
+                st.session_state[f"cardinal_ew_{i}"] = "East"
+                st.session_state[f"distance_{i}"] = 0.00
+                st.session_state[f"monument_{i}"] = ""
+
+    with col6:
+        if st.button("Add Line", use_container_width=True):
+            st.session_state.line_count += 1
+            # Initialize new line fields
+            i = st.session_state.line_count - 1
+            st.session_state[f"cardinal_ns_{i}"] = "North"
+            st.session_state[f"degrees_{i}"] = 0
+            st.session_state[f"minutes_{i}"] = 0
+            st.session_state[f"seconds_{i}"] = 0
+            st.session_state[f"cardinal_ew_{i}"] = "East"
+            st.session_state[f"distance_{i}"] = 0.00
+            st.session_state[f"monument_{i}"] = ""
 
     # Display supplemental information if available
     if st.session_state.supplemental_info:
