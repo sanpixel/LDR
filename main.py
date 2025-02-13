@@ -432,18 +432,20 @@ def draw_lines():
     fig.update_layout(
         showlegend=False,
         title='Line Drawing',
-        xaxis_title='X Coordinate',
-        yaxis_title='Y Coordinate',
         xaxis=dict(
             showgrid=False,
-            zeroline=True,
+            zeroline=False,
+            showline=False,
+            showticklabels=False,
             scaleanchor="y",
             scaleratio=1,
             constrain="domain"
         ),
         yaxis=dict(
             showgrid=False,
-            zeroline=True,
+            zeroline=False,
+            showline=False,
+            showticklabels=False,
             constrain="domain"
         ),
         width=800,
@@ -774,7 +776,7 @@ def main():
                     if dxf_data and len(dxf_data) > 0:
                         st.download_button(
                             label="Download DXF",
-                            data=dxdata,
+                            data=dxf_data,
                             file_name="line_drawing.dxf",
                             mime="application/octet-stream"
                         )
@@ -784,7 +786,6 @@ def main():
                     st.error(f"Error creating DXF file: {str(e)}")
             else:
                 st.warning("Add some lines before exporting")
-
 
     # Display the plot
     fig = draw_lines()
