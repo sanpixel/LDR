@@ -785,6 +785,7 @@ def export_cad():
         return None
 
 
+
 def export_pdf():
     """Create a PDF file containing the line drawing and property information."""
     if st.session_state.lines.empty:
@@ -950,7 +951,7 @@ def main():
     initialize_session_state()
 
     # Create two columns for the main layout
-    col1, col2 = st.columns([2, 1])
+    col1, col2, col3, col4 = st.columns(4) # Added one more column
 
     with col1:
         # PDF Upload Section
@@ -1123,8 +1124,20 @@ def main():
                     mime="application/dxf"
                 )
 
-    # Show Land Lot button
+    # Add PDF export button
     with col3:
+        if st.button("Export PDF"):
+            pdf_data = export_pdf()
+            if pdf_data:
+                st.download_button(
+                    label="Download PDF",
+                    data=pdf_data,
+                    file_name="survey_report.pdf",
+                    mime="application/pdf"
+                )
+
+    # Show Land Lot button
+    with col4:
         if st.button("Show Land Lot", use_container_width=True):
             if st.session_state.extracted_text and os.environ.get("OPENAI_API_KEY"):
                 st.session_state.supplemental_info = extract_supplemental_info_with_gpt(st.session_state.extracted_text)
@@ -1132,28 +1145,6 @@ def main():
                     st.json(st.session_state.supplemental_info)
             else:
                 st.warning("Please process a PDF file first")
-
-    # Clear all button
-    with col4:
-        if st.button("Clear All", use_container_width=True):
-            st.session_state.current_point = [0, 0]
-            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance', 'monument'])
-            st.session_state.parsed_bearings = None
-            st.session_state.extracted_text = None
-            st.session_state.pdf_image = None
-            st.session_state.supplemental_info = None
-            st.session_state.manual_bearing = None
-            st.session_state.line_count = 4 # Reset line count
-
-            # Clear all input fields
-            for i in range(4):
-                st.session_state[f"cardinal_ns_{i}"] = "North"
-                st.session_state[f"degrees_{i}"] = 0
-                st.session_state[f"minutes_{i}"] = 0
-                st.session_state[f"seconds_{i}"] = 0
-                st.session_state[f"cardinal_ew_{i}"] = "East"
-                st.session_state[f"distance_{i}"] = 0.00
-                st.session_state[f"monument_{i}"] = ""
 
     # Display the plot
     fig = draw_lines()
