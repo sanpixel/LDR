@@ -19,6 +19,8 @@ from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.graphics import shapes
+from reportlab.graphics.shapes import Drawing, Line, String, Circle
 
 # Try to import FreeCAD, but don't fail if it's not available
 FREECAD_AVAILABLE = False
@@ -827,20 +829,63 @@ def export_pdf():
             story.append(info_table)
             story.append(Spacer(1, 20))
 
-        # Add line drawing
-        fig = draw_lines()
-        # Update figure size for PDF
-        fig.update_layout(
-            width=500,
-            height=500,
-            margin=dict(l=20, r=20, t=20, b=20)
-        )
+        # Create a drawing of the lines using ReportLab
+        from reportlab.graphics import shapes
+        from reportlab.graphics.shapes import Drawing, Line, String, Circle
+        from reportlab.lib import colors
 
-        # Save the plot as a static image using base64 encoding
-        img_bytes = fig.to_image(format="png", engine="auto")
-        img_bio = io.BytesIO(img_bytes)
-        img = Image(img_bio, width=6*inch, height=6*inch)
-        story.append(img)
+        # Calculate the bounds of the drawing
+        if not st.session_state.lines.empty:
+            min_x = min(st.session_state.lines['start_x'].min(), st.session_state.lines['end_x'].min())
+            max_x = max(st.session_state.lines['start_x'].max(), st.session_state.lines['end_x'].max())
+            min_y = min(st.session_state.lines['start_y'].min(), st.session_state.lines['end_y'].min())
+            max_y = max(st.session_state.lines['start_y'].max(), st.session_state.lines['end_y'].max())
+
+            # Add padding
+            padding = max((max_x - min_x), (max_y - min_y)) * 0.1
+            min_x -= padding
+            max_x += padding
+            min_y -= padding
+            max_y += padding
+
+            # Create drawing with proper aspect ratio
+            width = 400
+            height = 400
+            scale_x = width / (max_x - min_x) if max_x != min_x else 1
+            scale_y = height / (max_y - min_y) if max_y != min_y else 1
+            scale = min(scale_x, scale_y)
+
+            d = Drawing(width + 50, height + 50)  # Add margins
+
+            # Helper function to transform coordinates
+            def transform_point(x, y):
+                return (
+                    25 + (x - min_x) * scale,
+                    25 + (y - min_y) * scale
+                )
+
+            # Draw POB point and label
+            pob_x, pob_y = transform_point(0, 0)
+            d.add(Circle(pob_x, pob_y, 3, fillColor=colors.black))
+            d.add(String(pob_x + 10, pob_y - 10, 'POB'))
+
+            # Draw all lines
+            for idx, row in st.session_state.lines.iterrows():
+                start_x, start_y = transform_point(row['start_x'], row['start_y'])
+                end_x, end_y = transform_point(row['end_x'], row['end_y'])
+
+                # Draw line
+                d.add(Line(start_x, start_y, end_x, end_y, strokeColor=colors.black, strokeWidth=1))
+
+                # Add bearing text
+                mid_x = (start_x + end_x) / 2
+                mid_y = (start_y + end_y) / 2
+                bearing_text = format_bearing_concise(row['bearing_desc'])
+                d.add(String(mid_x, mid_y + 10, bearing_text))
+                d.add(String(mid_x, mid_y - 5, f"{row['distance']:.2f}'"))
+
+            # Add the drawing to the story
+            story.append(d)
 
         # Add bearing information
         if not st.session_state.lines.empty:
@@ -1283,107 +1328,6 @@ def export_cad():
         st.error(f"CAD creation error: {str(e)}")
         return None
 
-
-def export_pdf():
-    """Create a PDF file containing the line drawing and property information."""
-    if st.session_state.lines.empty:
-        st.error("No lines to export")
-        return None
-
-    try:
-        # Create PDF buffer
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=72)
-
-        # Create the story (content) for the PDF
-        story = []
-        styles = getSampleStyleSheet()
-
-        # Add title
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
-            fontSize=16,
-            spaceAfter=30,
-            alignment=TA_CENTER
-        )
-        story.append(Paragraph("Property Survey Report", title_style))
-
-        # Add property information if available
-        if st.session_state.supplemental_info:
-            info_style = ParagraphStyle(
-                'InfoStyle',
-                parent=styles['Normal'],
-                fontSize=12,
-                spaceAfter=12,
-                alignment=TA_LEFT
-            )
-
-            # Create a table for property information
-            info_data = [
-                ["Land Lot:", str(st.session_state.supplemental_info.get('land_lot', 'N/A'))],
-                ["District:", str(st.session_state.supplemental_info.get('district', 'N/A'))],
-                ["County:", str(st.session_state.supplemental_info.get('county', 'N/A'))]
-            ]
-
-            info_table = Table(info_data, colWidths=[1.5*inch, 4*inch])
-            info_table.setStyle(TableStyle([
-                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 0), (-1, -1), 12),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ]))
-            story.append(info_table)
-            story.append(Spacer(1, 20))
-
-        # Add line drawing
-        fig = draw_lines()
-        # Update figure size for PDF
-        fig.update_layout(
-            width=500,
-            height=500,
-            margin=dict(l=20, r=20, t=20, b=20)
-        )
-
-        # Save the plot as a static image using base64 encoding
-        img_bytes = fig.to_image(format="png", engine="auto")
-        img_bio = io.BytesIO(img_bytes)
-        img = Image(img_bio, width=6*inch, height=6*inch)
-        story.append(img)
-
-        # Add bearing information
-        if not st.session_state.lines.empty:
-            story.append(Spacer(1, 20))
-            story.append(Paragraph("Survey Lines", styles['Heading2']))
-
-            # Create table for bearings
-            bearing_data = [["Line", "Bearing", "Distance", "Monument"]]
-            for idx, row in st.session_state.lines.iterrows():
-                bearing_data.append([
-                    f"Line {idx + 1}",
-                    format_bearing_concise(row['bearing_desc']),
-                    f"{row['distance']:.2f}'",
-                    row.get('monument', '')
-                ])
-
-            bearing_table = Table(bearing_data, colWidths=[1*inch, 2*inch, 1.5*inch, 2.5*inch])
-            bearing_table.setStyle(TableStyle([
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 10),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey90),
-            ]))
-            story.append(bearing_table)
-
-        # Build PDF
-        doc.build(story)
-        buffer.seek(0)
-        return buffer.getvalue()
-
-    except Exception as e:
-        st.error(f"PDF creation error: {str(e)}")
-        return None
 
 def main():
     # Configure Streamlit for file uploads
