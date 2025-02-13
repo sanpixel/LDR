@@ -945,6 +945,37 @@ def manual_bearing_input_to_parsed_format(cardinal_ns, degrees, minutes, seconds
         return None
 
 
+def generate_random_bearing():
+    """Generate random but realistic bearing values."""
+    import random
+
+    # Generate realistic bearing values
+    cardinal_ns = random.choice(["North", "South"])
+    degrees = random.randint(0, 89)  # Avoid 90 to keep it realistic
+    minutes = random.randint(0, 59)
+    seconds = random.randint(0, 59)
+    cardinal_ew = random.choice(["East", "West"])
+    distance = round(random.uniform(50.0, 500.0), 2)  # Realistic distances between 50-500 feet
+    monuments = [
+        "to an iron pin",
+        "to a stone marker",
+        "to a concrete monument",
+        "to a fence post",
+        "to a corner post",
+        ""
+    ]
+    monument = random.choice(monuments)
+
+    return {
+        'cardinal_ns': cardinal_ns,
+        'degrees': degrees,
+        'minutes': minutes,
+        'seconds': seconds,
+        'cardinal_ew': cardinal_ew,
+        'distance': distance,
+        'monument': monument
+    }
+
 def main():
     st.title("Line Drawing Application")
     initialize_session_state()
@@ -1033,13 +1064,39 @@ def main():
                 )
 
     with col4:
-        if st.button("Show Land Lot", use_container_width=True):
-            if st.session_state.extracted_text and os.environ.get("OPENAI_API_KEY"):
-                st.session_state.supplemental_info = extract_supplemental_info_with_gpt(st.session_state.extracted_text)
-                if st.session_state.supplemental_info:
-                    st.json(st.session_state.supplemental_info)
-            else:
-                st.warning("Please process a PDF file first")
+        if st.button("Debug", use_container_width=True):
+            # Generate 4 random bearings
+            for i in range(4):
+                bearing = generate_random_bearing()
+                st.session_state[f"cardinal_ns_{i}"] = bearing['cardinal_ns']
+                st.session_state[f"degrees_{i}"] = bearing['degrees']
+                st.session_state[f"minutes_{i}"] = bearing['minutes']
+                st.session_state[f"seconds_{i}"] = bearing['seconds']
+                st.session_state[f"cardinal_ew_{i}"] = bearing['cardinal_ew']
+                st.session_state[f"distance_{i}"] = bearing['distance']
+                st.session_state[f"monument_{i}"] = bearing['monument']
+
+            # Auto-trigger the draw lines functionality
+            st.session_state.current_point = [0, 0]
+            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance', 'monument'])
+
+            manual_bearings = []
+            for i in range(4):
+                bearing = manual_bearing_input_to_parsed_format(
+                    st.session_state[f"cardinal_ns_{i}"],
+                    st.session_state[f"degrees_{i}"],
+                    st.session_state[f"minutes_{i}"],
+                    st.session_state[f"seconds_{i}"],
+                    st.session_state[f"cardinal_ew_{i}"],
+                    st.session_state[f"distance_{i}"],
+                    st.session_state[f"monument_{i}"]
+                )
+                if bearing:
+                    manual_bearings.append(bearing)
+
+            if manual_bearings:
+                st.session_state.parsed_bearings = manual_bearings
+                draw_lines_from_bearings()
 
     with col5:
         if st.button("Clear All", use_container_width=True):
