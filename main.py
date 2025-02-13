@@ -114,12 +114,25 @@ def process_pdf(uploaded_file):
         bearings = []
         if os.environ.get("OPENAI_API_KEY"):
             st.info("Using GPT to analyze the text...")
-            bearings = extract_bearings_with_gpt(extracted_text)
+            try:
+                bearings = extract_bearings_with_gpt(extracted_text)
+                if bearings:
+                    st.success(f"Successfully extracted {len(bearings)} bearings using GPT")
+                    return bearings
+                else:
+                    st.warning("GPT analysis found no bearings, falling back to pattern matching...")
+            except Exception as e:
+                st.error(f"GPT analysis failed: {str(e)}, falling back to pattern matching...")
+        else:
+            st.warning("No OpenAI API key found, using pattern matching...")
 
-        # If GPT fails or no API key, fall back to pattern matching
-        if not bearings:
-            st.info("Falling back to pattern matching...")
-            bearings = extract_bearings_from_text(extracted_text)
+        # Only fall back to pattern matching if GPT failed or found nothing
+        st.info("Using pattern matching method...")
+        bearings = extract_bearings_from_text(extracted_text)
+        if bearings:
+            st.success(f"Found {len(bearings)} bearings using pattern matching")
+        else:
+            st.warning("No bearings found with pattern matching")
 
         return bearings
 
