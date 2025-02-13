@@ -789,7 +789,7 @@ def export_pdf():
     """Create a PDF file containing the line drawing and property information."""
     if st.session_state.lines.empty:
         st.error("No lines to export")
-        returnNone
+        return None
 
     try:
         # Create PDF buffer
@@ -988,28 +988,30 @@ def main():
         st.subheader("Upload PDF")
         uploaded_file = st.file_uploader("Choose a PDF file", type=['pdf'])
         if uploaded_file is not None:
-            st.write("Processing PDF...")
-            with st.spinner('Extracting text from PDF...'):
-                bearings = process_pdf(uploaded_file)
-                if bearings:
-                    st.success(f"Found {len(bearings)} bearings in the PDF")
-                    # Update line count based on number of bearings found
-                    st.session_state.line_count = max(st.session_state.line_count, len(bearings))
-                    # Initialize session state for all form fields
-                    for i in range(st.session_state.line_count):
-                        if i < len(bearings):
-                            bearing = bearings[i]
-                            st.session_state[f"cardinal_ns_{i}"] = bearing['cardinal_ns']
-                            st.session_state[f"degrees_{i}"] = bearing['degrees']
-                            st.session_state[f"minutes_{i}"] = bearing['minutes']
-                            st.session_state[f"seconds_{i}"] = bearing['seconds']
-                            st.session_state[f"cardinal_ew_{i}"] = bearing['cardinal_ew']
-                            st.session_state[f"distance_{i}"] = bearing['distance']
-                            st.session_state[f"monument_{i}"] = bearing['monument']
+            if st.button("Process PDF"):
+                with st.spinner('Processing PDF...'):
+                    bearings = process_pdf(uploaded_file)
+                    if bearings:
+                        st.success(f"Found {len(bearings)} bearings in the PDF")
+
+                        # Auto-fill the form fields with extracted bearings
+                        for i in range(st.session_state.line_count):
+                            if i < len(bearings):
+                                bearing = bearings[i]
+                                st.session_state[f"cardinal_ns_{i}"] = bearing['cardinal_ns']
+                                st.session_state[f"degrees_{i}"] = bearing['degrees']
+                                st.session_state[f"minutes_{i}"] = bearing['minutes']
+                                st.session_state[f"seconds_{i}"] = bearing['seconds']
+                                st.session_state[f"cardinal_ew_{i}"] = bearing['cardinal_ew']
+                                st.session_state[f"distance_{i}"] = bearing['distance']
+                                st.session_state[f"monument_{i}"] = bearing['monument']
 
     with col2:
         if st.session_state.pdf_image:
             st.image(st.session_state.pdf_image, caption='PDF Preview')
+
+    # Line Drawing Section
+    st.subheader("Draw Lines")
 
     # Action Buttons
     col1, col2, col3, col4, col5, col6 = st.columns(6)
@@ -1030,7 +1032,7 @@ def main():
                         st.session_state.get(f"minutes_{line_num}", 0),
                         st.session_state.get(f"seconds_{line_num}", 0),
                         st.session_state.get(f"cardinal_ew_{line_num}", "East"),
-                        st.session_state.get(f"distance_{line_num}", 0),
+                        st.session_state.get(f"distance_{line_num}", 0.00),
                         st.session_state.get(f"monument_{line_num}", "")
                     )
                     if bearing:
@@ -1131,9 +1133,6 @@ def main():
             st.session_state[f"distance_{i}"] = 0.00
             st.session_state[f"monument_{i}"] = ""
 
-    # Line Drawing Section
-    st.subheader("Draw Lines")
-
     # Create a container for all line inputs
     with st.container():
         for line_num in range(st.session_state.line_count):
@@ -1205,22 +1204,10 @@ def main():
     fig = draw_lines()
     st.plotly_chart(fig)
 
-
     # Display supplemental information if available
     if st.session_state.supplemental_info:
         st.subheader("Property Information")
-        if st.session_state.supplemental_info['land_lot']:
-            st.write(f"Land Lot: {st.session_state.supplemental_info['land_lot']}")
-        if st.session_state.supplemental_info['district']:
-            st.write(f"District: {st.session_state.supplemental_info['district']}")
-        if st.session_state.supplemental_info['county']:
-            st.write(f"County: {st.session_state.supplemental_info['county']}")
-
-    # Display PDF image if available
-    if st.session_state.pdf_image:
-        st.subheader("PDF Document")
-        st.write("Please review your document shown below to verify the system correctly recognized the meets and bounds")
-        st.image(st.session_state.pdf_image, caption="PDF First Page", use_container_width=True)
+        st.json(st.session_state.supplemental_info)
 
 if __name__ == "__main__":
     main()
