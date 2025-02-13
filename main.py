@@ -282,18 +282,28 @@ def create_dxf():
                 msp.add_circle((start[0], start[1]), radius=0.5, dxfattribs={"layer": "Points"})
                 msp.add_circle((end[0], end[1]), radius=0.5, dxfattribs={"layer": "Points"})
 
-                # Add dimension for the line
-                dim = msp.add_aligned_dimension(
-                    p1=start,  # Start point
-                    p2=end,    # End point
-                    distance=2, # Offset distance for dimension line
-                    dxfattribs={
-                        "dimstyle": "CUSTOM_STYLE",
-                        "layer": "Dimensions"
+                # Calculate angle and offset for dimension line
+                dx = end[0] - start[0]
+                dy = end[1] - start[1]
+                angle = np.arctan2(dy, dx)
+                # Offset perpendicular to the line
+                offset = 2.0  # Distance to offset dimension line
+                offset_x = -np.sin(angle) * offset
+                offset_y = np.cos(angle) * offset
+
+                # Add linear dimension
+                dim = msp.add_linear_dim(
+                    base=(start[0] + offset_x, start[1] + offset_y),  # Base point (offset from line)
+                    p1=start,    # Start point
+                    p2=end,      # End point
+                    angle=np.degrees(angle),  # Angle in degrees
+                    text=f"{row['distance']:.2f}'",  # Override dimension text
+                    dimstyle='CUSTOM_STYLE',
+                    override={
+                        'dimtad': 1,  # Text position above dimension line
+                        'dimtix': 1,  # Force text inside extension lines
                     }
                 )
-                # Override the dimension text with our distance value
-                dim.dxf.text = f"{row['distance']:.2f}'"
 
                 # Add monument text if available (offset slightly from the points)
                 if idx > 0:  # For all points except POB
