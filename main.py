@@ -239,6 +239,14 @@ def create_dxf():
         doc = ezdxf.new(setup=True)
         msp = doc.modelspace()
 
+        # Create and configure dimension style
+        dim_style = doc.dimstyles.new('CUSTOM_STYLE')
+        dim_style.dxf.dimtxt = 0.8  # Text height
+        dim_style.dxf.dimgap = 0.1  # Gap between text and dimension line
+        dim_style.dxf.dimasz = 0.4  # Arrow size
+        dim_style.dxf.dimclrd = 1   # Dimension line color (1=red)
+        dim_style.dxf.dimclrt = 2   # Dimension text color (2=yellow)
+
         # Add POB text and arrow
         try:
             # Add POB text
@@ -273,6 +281,19 @@ def create_dxf():
                 # Add circles at start and end points
                 msp.add_circle((start[0], start[1]), radius=0.5, dxfattribs={"layer": "Points"})
                 msp.add_circle((end[0], end[1]), radius=0.5, dxfattribs={"layer": "Points"})
+
+                # Add dimension for the line
+                dim = msp.add_aligned_dimension(
+                    p1=start,  # Start point
+                    p2=end,    # End point
+                    distance=2, # Offset distance for dimension line
+                    dxfattribs={
+                        "dimstyle": "CUSTOM_STYLE",
+                        "layer": "Dimensions"
+                    }
+                )
+                # Override the dimension text with our distance value
+                dim.dxf.text = f"{row['distance']:.2f}'"
 
                 # Add monument text if available (offset slightly from the points)
                 if idx > 0:  # For all points except POB
