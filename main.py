@@ -62,7 +62,7 @@ def extract_bearings_with_gpt(text):
                     st.text(f"\nAttempting to parse:\nBearing text: {bearing_text}\nDistance text: {distance_text}")
 
                     # Parse bearing components - make seconds optional
-                    pattern = r'(North|South)\s+(\d+)\s*(?:°|degrees|deg|\s)\s*(\d+)\s*(?:\'|′|minutes|min|\s)\s*(?:(\d+)\s*(?:"|″|seconds|sec|\s)\s+)?(East|West)'
+                    pattern = r'(North|South)\s+(\d+)\s*(?:°|degrees?|deg|\s)\s*(\d+)\s*(?:\'|′|minutes?|min|\s)\s*(?:(\d+)\s*(?:"|″|seconds?|sec|\s)\s+)?(East|West)'
                     match = re.search(pattern, bearing_text, re.IGNORECASE)
 
                     if match:
