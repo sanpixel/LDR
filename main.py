@@ -16,6 +16,24 @@ import json
 # Initialize OpenAI client
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
+def format_bearing_concise(bearing_desc):
+    """Convert verbose bearing description to concise surveyor's notation."""
+    try:
+        # Extract bearing components from the original text
+        pattern = r'(North|South)\s+(\d+)\s*(?:°|degrees?|deg|\s)\s*(\d+)\s*(?:\'|′|minutes?|min|\s)\s*(?:(\d+)\s*(?:"|″|seconds?|sec|\s)\s+)?(East|West)'
+        match = re.search(pattern, bearing_desc, re.IGNORECASE)
+
+        if match:
+            cardinal_ns, deg, min, sec, cardinal_ew = match.groups()
+            # Format to concise notation
+            ns = 'N' if cardinal_ns.lower() == 'north' else 'S'
+            ew = 'E' if cardinal_ew.lower() == 'east' else 'W'
+            sec = f" {int(sec):02d}s" if sec else ""
+            return f"{ns} {deg}d {min}m{sec} {ew}"
+    except Exception:
+        return bearing_desc  # Return original if parsing fails
+    return bearing_desc
+
 def extract_bearings_with_gpt(text):
     """Use GPT to extract bearings from text."""
     try:
@@ -379,12 +397,13 @@ def draw_lines():
             line=dict(width=2)
         ))
 
-        # Add text label
+        # Add text label with concise bearing format
+        bearing_text = format_bearing_concise(row["bearing_desc"])
         fig.add_trace(go.Scatter(
             x=[mid_x],
             y=[mid_y],
             mode='text',
-            text=[f'Line {idx+1}: {row["bearing_desc"]}<br>{row["distance"]:.2f} ft'],
+            text=[f"{bearing_text}<br>{row['distance']:.2f} ft"],
             textposition='top center',
             hoverinfo='text',
             showlegend=False
