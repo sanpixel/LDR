@@ -50,6 +50,11 @@ def extract_bearings_from_text(text):
                 cardinal_ns, deg, min, sec, cardinal_ew = match.groups()
 
                 distance = 0.00 # Default distance
+                distance_pattern = r'(\d+(?:\.\d+)?)\s*(?=feet)' # Retained original regex
+                distance_match = re.search(distance_pattern, segment, re.IGNORECASE)
+                if distance_match:
+                    distance = float(distance_match.group(1))
+
 
                 bearings.append({
                     'cardinal_ns': 'North' if cardinal_ns.lower() == 'north' else 'South',
