@@ -994,17 +994,19 @@ def main():
                     if bearings:
                         st.success(f"Found {len(bearings)} bearings in the PDF")
 
+                        # Update line count to match number of bearings
+                        st.session_state.line_count = len(bearings)
+
                         # Auto-fill the form fields with extracted bearings
-                        for i in range(st.session_state.line_count):
-                            if i < len(bearings):
-                                bearing = bearings[i]
-                                st.session_state[f"cardinal_ns_{i}"] = bearing['cardinal_ns']
-                                st.session_state[f"degrees_{i}"] = bearing['degrees']
-                                st.session_state[f"minutes_{i}"] = bearing['minutes']
-                                st.session_state[f"seconds_{i}"] = bearing['seconds']
-                                st.session_state[f"cardinal_ew_{i}"] = bearing['cardinal_ew']
-                                st.session_state[f"distance_{i}"] = bearing['distance']
-                                st.session_state[f"monument_{i}"] = bearing['monument']
+                        for i in range(len(bearings)):
+                            bearing = bearings[i]
+                            st.session_state[f"cardinal_ns_{i}"] = bearing['cardinal_ns']
+                            st.session_state[f"degrees_{i}"] = bearing['degrees']
+                            st.session_state[f"minutes_{i}"] = bearing['minutes']
+                            st.session_state[f"seconds_{i}"] = bearing['seconds']
+                            st.session_state[f"cardinal_ew_{i}"] = bearing['cardinal_ew']
+                            st.session_state[f"distance_{i}"] = bearing['distance']
+                            st.session_state[f"monument_{i}"] = bearing['monument']
 
     with col2:
         if st.session_state.pdf_image:
