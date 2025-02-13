@@ -22,7 +22,8 @@ def extract_bearings_with_gpt(text):
         # Create a prompt that instructs GPT to find bearings
         prompt = """Extract all bearings and distances from the following legal description text. 
         Format each bearing exactly like this example, one per line:
-        BEARING: North 45 degrees 30 minutes 20 seconds East DISTANCE: 100.00 feet
+        BEARING: North 45 degrees 30 minutes East DISTANCE: 100.00 feet
+        Note: Seconds are optional and should be omitted if not present in the text.
 
         Text to analyze:
         """ + text
@@ -57,12 +58,14 @@ def extract_bearings_with_gpt(text):
                     bearing_text = parts[0].replace('BEARING:', '').strip()
                     distance_text = parts[1].strip()
 
-                    # Parse bearing components
-                    pattern = r'(North|South)\s+(\d+)\s+degrees\s+(\d+)\s+minutes\s+(\d+)\s+seconds\s+(East|West)'
+                    # Parse bearing components - make seconds optional
+                    pattern = r'(North|South)\s+(\d+)\s+degrees\s+(\d+)\s+minutes(?:\s+(\d+)\s+seconds)?\s+(East|West)'
                     match = re.search(pattern, bearing_text)
 
                     if match:
                         cardinal_ns, deg, min, sec, cardinal_ew = match.groups()
+                        # Default seconds to 0 if not found
+                        sec = int(sec) if sec else 0
 
                         # Parse distance
                         distance_match = re.search(r'(\d+(?:\.\d+)?)\s*feet', distance_text)
@@ -72,7 +75,7 @@ def extract_bearings_with_gpt(text):
                             'cardinal_ns': cardinal_ns,
                             'degrees': int(deg),
                             'minutes': int(min),
-                            'seconds': int(sec),
+                            'seconds': sec,
                             'cardinal_ew': cardinal_ew,
                             'distance': distance,
                             'original_text': line.strip()
