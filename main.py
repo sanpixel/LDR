@@ -338,6 +338,8 @@ def initialize_session_state():
         st.session_state.parsed_bearings = None
     if 'pdf_image' not in st.session_state:
         st.session_state.pdf_image = None
+    if 'supplemental_info' not in st.session_state:
+        st.session_state.supplemental_info = None
 
 def draw_lines():
     """Create a Plotly figure with all lines."""
@@ -464,6 +466,45 @@ def create_rectangle(start_point, side_length):
     })
 
     return pd.DataFrame(lines)
+
+def extract_supplemental_info_with_gpt(text):
+    """Use GPT to extract Land Lot # and District information."""
+    try:
+        prompt = """Extract the Land Lot number and District information from the following text.
+        Format the response exactly like this example:
+        Land Lot: 123
+        District: 2nd
+
+        Text to analyze:
+        """ + text
+
+        # Call GPT-4 with the prompt
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[{
+                "role": "user",
+                "content": prompt
+            }],
+            temperature=0
+        )
+
+        # Get the response text
+        result_text = response.choices[0].message.content
+
+        # Parse the response
+        land_lot = None
+        district = None
+
+        for line in result_text.split('\n'):
+            if line.strip().startswith('Land Lot:'):
+                land_lot = line.replace('Land Lot:', '').strip()
+            elif line.strip().startswith('District:'):
+                district = line.replace('District:', '').strip()
+
+        return {'land_lot': land_lot, 'district': district}
+    except Exception as e:
+        st.error(f"Error extracting supplemental info: {str(e)}")
+        return None
 
 def main():
     # Configure Streamlit for file uploads
@@ -631,11 +672,15 @@ def main():
                     # Update current point
                     st.session_state.current_point = end_point
 
-    # Reset Lines button
+    # Add Supplemental Text button
     with col2:
-        if st.button("Reset Lines", use_container_width=True):
-            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
-            st.session_state.current_point = [0, 0]
+        if st.button("Add Supplemental Text", use_container_width=True):
+            if st.session_state.extracted_text and os.environ.get("OPENAI_API_KEY"):
+                st.session_state.supplemental_info = extract_supplemental_info_with_gpt(st.session_state.extracted_text)
+                if st.session_state.supplemental_info:
+                    st.success("Successfully extracted supplemental information")
+            else:
+                st.warning("Please process a PDF file first")
 
     # Add Rectangle button
     with col3:
@@ -652,6 +697,7 @@ def main():
         if st.button("Clear All", use_container_width=True):
             st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
             st.session_state.current_point = [0, 0]
+            st.session_state.supplemental_info = None
 
     # Export DXF button
     with col5:
@@ -678,6 +724,14 @@ def main():
     fig = draw_lines()
     fig.update_layout(height=800)
     st.plotly_chart(fig, use_container_width=True)
+
+    # Display supplemental information if available
+    if st.session_state.supplemental_info:
+        st.subheader("Property Information")
+        if st.session_state.supplemental_info['land_lot']:
+            st.write(f"Land Lot: {st.session_state.supplemental_info['land_lot']}")
+        if st.session_state.supplemental_info['district']:
+            st.write(f"District: {st.session_state.supplemental_info['district']}")
 
     # Display line data
     if not st.session_state.lines.empty:
