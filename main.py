@@ -13,6 +13,15 @@ import os
 from openai import OpenAI
 import json
 
+# Try to import FreeCAD, but don't fail if it's not available
+FREECAD_AVAILABLE = False
+try:
+    import FreeCAD
+    import Part
+    FREECAD_AVAILABLE = True
+except ImportError:
+    pass
+
 # Initialize OpenAI client
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
@@ -693,6 +702,72 @@ def process_pdf(uploaded_file):
         st.error(f"Error processing PDF: {str(e)}")
         return []
 
+def export_cad():
+    """Create a CAD file using FreeCAD."""
+    if not FREECAD_AVAILABLE:
+        st.error("FreeCAD is not available. Please use DXF export instead.")
+        return None
+
+    if st.session_state.lines.empty:
+        st.error("No lines to export")
+        return None
+
+    try:
+        # Create a new FreeCAD document
+        doc = FreeCAD.newDocument("LineDrawing")
+
+        # Add POB point
+        pob = Part.makeVertex(0, 0, 0)
+        pob_obj = doc.addObject("Part::Feature", "POB")
+        pob_obj.Shape = pob
+
+        # Add POB label
+        label = doc.addObject("App::Annotation", "POB_Label")
+        label.LabelText = "POB"
+        label.Position = FreeCAD.Vector(3, -3, 0)
+
+        # Add each line
+        for idx, row in st.session_state.lines.iterrows():
+            try:
+                # Create line
+                start = FreeCAD.Vector(float(row['start_x']), float(row['start_y']), 0)
+                end = FreeCAD.Vector(float(row['end_x']), float(row['end_y']), 0)
+                line = Part.LineSegment(start, end)
+
+                # Add line to document
+                line_obj = doc.addObject("Part::Feature", f"Line_{idx+1}")
+                line_obj.Shape = Part.Shape([line])
+
+                # Add dimension
+                dim = doc.addObject("TechDraw::DrawViewDimension", f"Dimension_{idx+1}")
+                dim.Type = "Distance"
+                dim.X = (start.x + end.x) / 2
+                dim.Y = (start.y + end.y) / 2
+                dim.Text = f"{row['distance']:.2f}'"
+
+                # Add monument text if available
+                if 'monument' in row and row['monument']:
+                    monument = doc.addObject("App::Annotation", f"Monument_{idx+1}")
+                    monument.LabelText = row['monument']
+                    monument.Position = FreeCAD.Vector(end.x + 1, end.y + 1, 0)
+
+            except Exception as line_error:
+                st.warning(f"Error adding line {idx+1}: {str(line_error)}")
+                continue
+
+        # Save the file
+        filename = "line_drawing.FCStd"
+        doc.saveAs(filename)
+
+        # Read the file back for download
+        with open(filename, 'rb') as f:
+            return f.read()
+
+    except Exception as e:
+        st.error(f"CAD creation error: {str(e)}")
+        return None
+
+
 def main():
     # Configure Streamlit for file uploads
     st.set_page_config(
@@ -726,14 +801,14 @@ def main():
                 bearings = process_pdf(uploaded_file)
                 if bearings:
                     st.success(f"Found {len(bearings)} bearings in the PDF")
-                    # Initialize session state for all form fields
+                                        # Initialize session state for all form fields
                     for i in range(4):
                         if i < len(bearings):
                             bearing = bearings[i]
                             st.session_state[f"cardinal_ns_{i}"] = bearing['cardinal_ns']
                             st.session_state[f"degrees_{i}"] = int(bearing['degrees'])
                             st.session_state[f"minutes_{i}"] = int(bearing['minutes'])
-                            st.session_state[f"seconds_{i}"] = int(bearing['seconds'])
+                            st.session_state[f"seconds_{i}"] = int(bearing['seconds'])  # Fixed syntax error
                             st.session_state[f"cardinal_ew_{i}"] = bearing['cardinal_ew']
                             st.session_state[f"distance_{i}"] = float(bearing['distance'])
                             st.session_state[f"monument_{i}"] = bearing['monument'] #added monument
@@ -746,7 +821,6 @@ def main():
                             st.session_state[f"cardinal_ew_{i}"] = "East"
                             st.session_state[f"distance_{i}"] = 0.00
                             st.session_state[f"monument_{i}"] = "" #added monument
-
 
 
     # Show extracted text and analysis in the second column if available
@@ -830,86 +904,69 @@ def main():
                 )
 
     # Control Buttons
-    col1, col2, col3, col4, col5 = st.columns(5)
+    col1, col2, col3, col4 = st.columns(4)
 
     # Draw Lines button
     with col1:
         if st.button("Draw Lines", use_container_width=True):
-            # Reset starting point and lines
             st.session_state.current_point = [0, 0]
             st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance', 'monument'])
             draw_lines_from_bearings()
 
-    # Show Land Lot button
+    # Export buttons section
     with col2:
+        # Create a container for export buttons
+        with st.expander("Export Options", expanded=True):
+            # Only show CAD export if FreeCAD is available
+            if FREECAD_AVAILABLE:
+                if st.button("Export CAD (.FCStd)", use_container_width=True):
+                    st.info("Creating CAD file...")
+                    cad_file = export_cad()
+                    if cad_file:
+                        st.success("CAD file created successfully!")
+                        st.download_button(
+                            label="Download CAD",
+                            data=cad_file,
+                            file_name="line_drawing.FCStd",
+                            mime="application/octet-stream"
+                        )
+
+            # DXF export is always available
+            if st.button("Export DXF", use_container_width=True):
+                st.info("Creating DXF file...")
+                dxf_file = create_dxf()
+                if dxf_file:
+                    st.success("DXF file created successfully!")
+                    st.download_button(
+                        label="Download DXF",
+                        data=dxf_file,
+                        file_name="line_drawing.dxf",
+                        mime="application/dxf"
+                    )
+
+    # Show Land Lot button
+    with col3:
         if st.button("Show Land Lot", use_container_width=True):
             if st.session_state.extracted_text and os.environ.get("OPENAI_API_KEY"):
                 st.session_state.supplemental_info = extract_supplemental_info_with_gpt(st.session_state.extracted_text)
                 if st.session_state.supplemental_info:
-                    st.success("Successfully extracted supplemental information")
+                    st.json(st.session_state.supplemental_info)
             else:
                 st.warning("Please process a PDF file first")
 
     # Clear all button
-    with col3:
-        if st.button("Clear All", use_container_width=True):
-            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance', 'monument'])
-            st.session_state.current_point = [0, 0]
-            st.session_state.supplemental_info = None
-            # Reset all line input fields
-            for i in range(4):
-                st.session_state[f"cardinal_ns_{i}"] = "North"
-                st.session_state[f"degrees_{i}"] = 0
-                st.session_state[f"minutes_{i}"] = 0
-                st.session_state[f"seconds_{i}"] = 0
-                st.session_state[f"cardinal_ew_{i}"] = "East"
-                st.session_state[f"distance_{i}"] = 0.00
-                st.session_state[f"monument_{i}"] = ""
-
-    # Export DXF button
     with col4:
-        if st.button("Export DXF", use_container_width=True):
-            if not st.session_state.lines.empty:
-                try:
-                    dxf_data = create_dxf()
-                    if dxf_data and len(dxf_data) > 0:
-                        st.download_button(
-                            label="Download DXF",
-                            data=dxf_data,
-                            file_name="line_drawing.dxf",
-                            mime="application/octet-stream"
-                        )
-                    else:
-                        st.error("Error: Generated DXF file is empty")
-                except Exception as e:
-                    st.error(f"Error creating DXF file: {str(e)}")
-            else:
-                st.warning("Add some lines before exporting")
-
-    # New Export button
-    with col5:
-        if st.button("Export", use_container_width=True):
-            if not st.session_state.lines.empty:
-                try:
-                    dxf_data = create_dxf()
-                    if dxf_data and len(dxf_data) > 0:
-                        st.download_button(
-                            label="Download DXF",
-                            data=dxf_data,
-                            file_name="line_drawing.dxf",
-                            mime="application/octet-stream"
-                        )
-                    else:
-                        st.error("Error: Generated DXF file is empty")
-                except Exception as e:
-                    st.error(f"Error creating DXDXF file: {str(e)}")
-            else:
-                st.warning("Add some lines before exporting")
+        if st.button("Clear All", use_container_width=True):
+            st.session_state.current_point = [0, 0]
+            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance', 'monument'])
+            st.session_state.parsed_bearings = None
+            st.session_state.extracted_text = None
+            st.session_state.pdf_image = None
+            st.session_state.supplemental_info = None
 
     # Display the plot
     fig = draw_lines()
-    fig.update_layout(height=800)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig)
 
     # Display supplemental information if available
     if st.session_state.supplemental_info:
