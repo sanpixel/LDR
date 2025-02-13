@@ -687,7 +687,7 @@ def main():
     # Display PDF image if available
     if st.session_state.pdf_image:
         st.subheader("PDF Document")
-        st.image(st.session_state.pdf_image, caption="PDF First Page", use_column_width=True)
+        st.image(st.session_state.pdf_image, caption="PDF First Page", use_container_width=True)
 
 if __name__ == "__main__":
     main()
