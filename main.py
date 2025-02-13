@@ -41,10 +41,6 @@ def extract_bearings_with_gpt(text):
         # Get the response text
         result_text = response.choices[0].message.content
 
-        # Debug output
-        st.subheader("GPT Analysis Results")
-        st.text(result_text)
-
         # Parse the response into our bearing format
         bearings = []
         for line in result_text.split('\n'):
@@ -57,9 +53,6 @@ def extract_bearings_with_gpt(text):
 
                     bearing_text = parts[0].replace('BEARING:', '').strip()
                     distance_text = parts[1].strip()
-
-                    # Debug: Show what we're trying to parse
-                    st.text(f"\nAttempting to parse:\nBearing text: {bearing_text}\nDistance text: {distance_text}")
 
                     # Parse bearing components - make seconds optional
                     pattern = r'(North|South)\s+(\d+)\s*(?:°|degrees?|deg|\s)\s*(\d+)\s*(?:\'|′|minutes?|min|\s)\s*(?:(\d+)\s*(?:"|″|seconds?|sec|\s)\s+)?(East|West)'
@@ -84,25 +77,13 @@ def extract_bearings_with_gpt(text):
                             'original_text': line.strip()
                         }
                         bearings.append(bearing)
-
-                        # Debug: Show successful parse
-                        st.text(f"Successfully parsed bearing {len(bearings)}:")
-                        st.json(bearing)
                     else:
                         st.warning(f"Could not match bearing pattern in: {bearing_text}")
                 except Exception as parse_error:
                     st.warning(f"Could not parse line: {line}\nError: {str(parse_error)}")
                     continue
 
-        # Debug output for all parsed bearings
-        st.subheader("All Parsed Bearings")
-        st.text(f"Total bearings found: {len(bearings)}")
-        for i, bearing in enumerate(bearings):
-            st.text(f"Bearing {i+1}:")
-            st.json(bearing)
-
         return bearings
-
     except Exception as e:
         st.error(f"Error using GPT to parse text: {str(e)}")
         return []
@@ -127,8 +108,8 @@ def process_pdf(uploaded_file):
         # Clean up temporary file
         os.unlink(pdf_path)
 
-        # Display raw extracted text
-        st.text_area("Raw Extracted Text", extracted_text, height=300)
+        # Store extracted text in session state
+        st.session_state.extracted_text = extracted_text
 
         # First try GPT extraction
         bearings = []
@@ -138,6 +119,8 @@ def process_pdf(uploaded_file):
                 bearings = extract_bearings_with_gpt(extracted_text)
                 if bearings:
                     st.success(f"Successfully extracted {len(bearings)} bearings using GPT")
+                    # Store bearings in session state
+                    st.session_state.parsed_bearings = bearings
                     return bearings
                 else:
                     st.warning("GPT analysis found no bearings, falling back to pattern matching...")
@@ -151,6 +134,8 @@ def process_pdf(uploaded_file):
         bearings = extract_bearings_from_text(extracted_text)
         if bearings:
             st.success(f"Found {len(bearings)} bearings using pattern matching")
+            # Store bearings in session state
+            st.session_state.parsed_bearings = bearings
         else:
             st.warning("No bearings found with pattern matching")
 
@@ -175,10 +160,6 @@ def extract_bearings_from_text(text):
         # Extract text from the first bearing onwards
         relevant_text = text[start_match.start():]
 
-        # Debug: Show the text we're working with
-        st.subheader("Extracted Text Starting at First Bearing")
-        st.text(relevant_text[:500])  # Show first 500 chars
-
         # Pattern matches formats like "North 11° 22' 33" East" with flexible separators
         pattern = r'(North|South)\s*(\d+)\s*(?:°|degrees|deg|\s)\s*(\d+)\s*(?:\'|′|minutes|min|\s)\s*(\d+)\s*(?:"|″|seconds|sec|\s)\s*(East|West)'
 
@@ -191,9 +172,6 @@ def extract_bearings_from_text(text):
             match = re.search(pattern, segment, re.IGNORECASE)
             if match:
                 cardinal_ns, deg, min, sec, cardinal_ew = match.groups()
-
-                # Debug: Show matched segment
-                st.text(f"\nMatched segment:\n{segment.strip()}")
 
                 # Look for distance in the same segment
                 distance = 0.00  # Default distance
@@ -215,16 +193,7 @@ def extract_bearings_from_text(text):
                     'original_text': segment.strip()
                 })
 
-        # Display what we found
-        if bearings:
-            st.subheader("Found Bearings and Distances")
-            for i, bearing in enumerate(bearings):
-                st.text(f"Bearing {i+1}:\n{bearing['original_text']}\nDistance: {bearing['distance']:.2f} feet")
-        else:
-            st.warning("No complete bearings found in the expected format")
-
         return bearings
-
     except Exception as e:
         st.error(f"Error parsing text: {str(e)}")
         return []
@@ -292,16 +261,10 @@ def create_dxf():
         doc = ezdxf.new(setup=True)
         msp = doc.modelspace()
 
-        # Debug: Show how many lines we're processing
-        st.write(f"Processing {len(st.session_state.lines)} lines for DXF export")
-
         # Add each line
         for idx, row in st.session_state.lines.iterrows():
             start = (float(row['start_x']), float(row['start_y']))
             end = (float(row['end_x']), float(row['end_y']))
-
-            # Debug: Show coordinates being added
-            st.write(f"Adding line {idx+1}: ({start[0]}, {start[1]}) to ({end[0]}, {end[1]})")
 
             try:
                 msp.add_line((start[0], start[1]), (end[0], end[1]), dxfattribs={"layer": "Lines"})
@@ -360,6 +323,12 @@ def initialize_session_state():
         st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'distance', 'bearing_desc'])
     if 'current_point' not in st.session_state:
         st.session_state.current_point = [0, 0]
+    if 'gpt_analysis' not in st.session_state:
+        st.session_state.gpt_analysis = None
+    if 'extracted_text' not in st.session_state:
+        st.session_state.extracted_text = None
+    if 'parsed_bearings' not in st.session_state:
+        st.session_state.parsed_bearings = None
 
 def draw_lines():
     """Create a Plotly figure with all lines."""
@@ -507,35 +476,31 @@ def main():
     st.title("Line Drawing Application")
     initialize_session_state()
 
-    # PDF Upload Section
-    st.subheader("Import PDF with Bearings")
-    uploaded_file = st.file_uploader("Choose a PDF file", type="pdf")
+    # Create two columns for the main layout
+    col1, col2 = st.columns([2, 1])
 
-    if uploaded_file is not None:
-        if st.button("Process PDF"):
-            bearings = process_pdf(uploaded_file)
-            if bearings:
-                st.success(f"Found {len(bearings)} bearings in the PDF")
+    with col1:
+        # PDF Upload Section
+        st.subheader("Import PDF with Bearings")
+        uploaded_file = st.file_uploader("Choose a PDF file", type="pdf")
 
-                # Initialize session state for all form fields
-                for i in range(4):
-                    if i < len(bearings):
-                        bearing = bearings[i]  # Get the correct bearing for this iteration
-                        # Ensure all values are properly typed
-                        st.session_state[f"cardinal_ns_{i}"] = bearing['cardinal_ns']
-                        st.session_state[f"degrees_{i}"] = int(bearing['degrees'])
-                        st.session_state[f"minutes_{i}"] = int(bearing['minutes'])
-                        st.session_state[f"seconds_{i}"] = int(bearing['seconds'])
-                        st.session_state[f"cardinal_ew_{i}"] = bearing['cardinal_ew']
-                        st.session_state[f"distance_{i}"] = float(bearing['distance'])
-                    else:
-                        # Initialize remaining fields to defaults
-                        st.session_state[f"cardinal_ns_{i}"] = "North"
-                        st.session_state[f"degrees_{i}"] = 0
-                        st.session_state[f"minutes_{i}"] = 0
-                        st.session_state[f"seconds_{i}"] = 0
-                        st.session_state[f"cardinal_ew_{i}"] = "East"
-                        st.session_state[f"distance_{i}"] = 0.00
+        if uploaded_file is not None:
+            if st.button("Process PDF"):
+                bearings = process_pdf(uploaded_file)
+                if bearings:
+                    st.success(f"Found {len(bearings)} bearings in the PDF")
+
+    # Show extracted text and analysis in the second column if available
+    with col2:
+        if st.session_state.extracted_text:
+            st.subheader("Extracted Text")
+            st.text_area("Raw Text", st.session_state.extracted_text, height=200)
+
+        if st.session_state.parsed_bearings:
+            st.subheader("Parsed Bearings")
+            for i, bearing in enumerate(st.session_state.parsed_bearings):
+                st.text(f"Bearing {i+1}:")
+                st.json(bearing)
 
     # Line Drawing Section
     st.subheader("Draw Lines")
