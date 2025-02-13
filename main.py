@@ -629,7 +629,7 @@ def main():
         if st.session_state.parsed_bearings:
             st.subheader("Parsed Bearings")
             for i, bearing in enumerate(st.session_state.parsed_bearings):
-                st.text(bearing['original_text'])
+                st.text(f"Line {i+1}: {bearing['original_text']}")
 
     # Line Drawing Section
     st.subheader("Draw Lines")
