@@ -235,17 +235,9 @@ def create_dxf():
         return None
 
     try:
-        # Create new document with setup=True
+        # Create new document
         doc = ezdxf.new(setup=True)
         msp = doc.modelspace()
-
-        # Create and configure dimension style
-        dim_style = doc.dimstyles.new('CUSTOM_STYLE')
-        dim_style.dxf.dimtxt = 0.8  # Text height
-        dim_style.dxf.dimgap = 0.1  # Gap between text and dimension line
-        dim_style.dxf.dimasz = 0.4  # Arrow size
-        dim_style.dxf.dimclrd = 1   # Dimension line color (1=red)
-        dim_style.dxf.dimclrt = 2   # Dimension text color (2=yellow)
 
         # Add POB text and arrow
         try:
@@ -253,7 +245,6 @@ def create_dxf():
             msp.add_text(
                 "POB",
                 dxfattribs={
-                    "layer": "Text",
                     "height": 1.0,
                     "insert": (3, -3)  # Offset from origin
                 }
@@ -262,10 +253,9 @@ def create_dxf():
             msp.add_line(
                 (3, -3),  # Start at text location
                 (0, 0),   # End at origin
-                dxfattribs={"layer": "POB_Arrow"}
             )
             # Add circle at POB (origin)
-            msp.add_circle((0, 0), radius=0.5, dxfattribs={"layer": "Points"})
+            msp.add_circle((0, 0), radius=0.5)
         except Exception as pob_error:
             st.warning(f"Error adding POB annotation: {str(pob_error)}")
 
@@ -276,36 +266,21 @@ def create_dxf():
 
             try:
                 # Add the line
-                msp.add_line((start[0], start[1]), (end[0], end[1]), dxfattribs={"layer": "Lines"})
+                msp.add_line(start, end)
 
                 # Add circles at start and end points
-                msp.add_circle((start[0], start[1]), radius=0.5, dxfattribs={"layer": "Points"})
-                msp.add_circle((end[0], end[1]), radius=0.5, dxfattribs={"layer": "Points"})
+                msp.add_circle(start, radius=0.5)
+                msp.add_circle(end, radius=0.5)
 
-                # Calculate angle and offset for dimension line
-                dx = end[0] - start[0]
-                dy = end[1] - start[1]
-                angle = np.arctan2(dy, dx)
-                # Offset perpendicular to the line
-                offset = 2.0  # Distance to offset dimension line
-                offset_x = -np.sin(angle) * offset
-                offset_y = np.cos(angle) * offset
-
-                # Add linear dimension
-                dim = msp.add_linear_dim(
-                    base=(start[0] + offset_x, start[1] + offset_y),  # Base point (offset from line)
-                    p1=start,    # Start point
-                    p2=end,      # End point
-                    angle=0,  # Angle in degrees (horizontal)
-                    text=f"{row['distance']:.2f}'",  # Override dimension text
-                    dimstyle='CUSTOM_STYLE',
-                    override={
-                        'dimtad': 1,  # Text position above dimension line
-                        'dimtix': 1,  # Force text inside extension lines
-                    }
+                # Add simple linear dimension
+                msp.add_linear_dim(
+                    p1=start,      # Start point
+                    p2=end,        # End point
+                    base=start,    # Base point
+                    text=f"{row['distance']:.2f}'"  # Distance text
                 )
 
-                # Add monument text if available (offset slightly from the points)
+                # Add monument text if available
                 if idx > 0:  # For all points except POB
                     # Add monument text at start point (from previous line's end)
                     prev_row = st.session_state.lines.iloc[idx-1]
@@ -313,9 +288,8 @@ def create_dxf():
                         msp.add_text(
                             prev_row['monument'],
                             dxfattribs={
-                                "layer": "Monuments",
                                 "height": 0.8,
-                                "insert": (start[0] + 1, start[1] + 1)  # Offset text position
+                                "insert": (start[0] + 1, start[1] + 1)
                             }
                         )
 
@@ -324,9 +298,8 @@ def create_dxf():
                     msp.add_text(
                         row['monument'],
                         dxfattribs={
-                            "layer": "Monuments",
                             "height": 0.8,
-                            "insert": (end[0] + 1, end[1] + 1)  # Offset text position
+                            "insert": (end[0] + 1, end[1] + 1)
                         }
                     )
             except Exception as line_error:
@@ -769,10 +742,11 @@ def main():
                             st.session_state[f"cardinal_ns_{i}"] = "North"
                             st.session_state[f"degrees_{i}"] = 0
                             st.session_state[f"minutes_{i}"] =0
-                            stsession_state[f"seconds_{i}"] = 0
+                            st.session_state[f"seconds_{i}"] = 0
                             st.session_state[f"cardinal_ew_{i}"] = "East"
                             st.session_state[f"distance_{i}"] = 0.00
                             st.session_state[f"monument_{i}"] = "" #added monument
+
 
 
     # Show extracted text and analysis in the second column if available
