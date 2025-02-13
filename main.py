@@ -10,6 +10,107 @@ from pdf2image import convert_from_path
 import re
 import tempfile
 import os
+from openai import OpenAI
+import json
+
+# Initialize OpenAI client
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
+def extract_bearings_with_gpt(text):
+    """Use GPT to extract bearings from text."""
+    try:
+        # Create a prompt that instructs GPT to find bearings
+        prompt = """Extract all bearings and distances from the following legal description text. 
+        Return them as a JSON array where each bearing has:
+        - cardinal_ns (North/South)
+        - degrees (integer)
+        - minutes (integer)
+        - seconds (integer)
+        - cardinal_ew (East/West)
+        - distance (float with 2 decimal places)
+        - original_text (the full text segment containing the bearing)
+
+        Example format:
+        {
+            "bearings": [
+                {
+                    "cardinal_ns": "North",
+                    "degrees": 45,
+                    "minutes": 30,
+                    "seconds": 20,
+                    "cardinal_ew": "East",
+                    "distance": 100.00,
+                    "original_text": "North 45° 30' 20\" East, a distance of 100.00 feet"
+                }
+            ]
+        }
+
+        Text to analyze:
+        """ + text
+
+        # Call GPT-4 with the prompt
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[{
+                "role": "user",
+                "content": prompt
+            }],
+            response_format={"type": "json_object"},
+            temperature=0
+        )
+
+        # Parse the response
+        result = json.loads(response.choices[0].message.content)
+
+        # Debug output
+        st.subheader("GPT Analysis Results")
+        st.json(result)
+
+        return result.get("bearings", [])
+
+    except Exception as e:
+        st.error(f"Error using GPT to parse text: {str(e)}")
+        return []
+
+def process_pdf(uploaded_file):
+    """Process uploaded PDF file and extract bearings."""
+    try:
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+            tmp_file.write(uploaded_file.getvalue())
+            pdf_path = tmp_file.name
+
+        # Convert PDF to images
+        images = convert_from_path(pdf_path)
+
+        # Extract text from each page
+        extracted_text = ""
+        for i, image in enumerate(images):
+            text = pytesseract.image_to_string(image)
+            extracted_text += f"\n--- Page {i+1} ---\n{text}\n"
+
+        # Clean up temporary file
+        os.unlink(pdf_path)
+
+        # Display raw extracted text
+        st.text_area("Raw Extracted Text", extracted_text, height=300)
+
+        # First try GPT extraction
+        bearings = []
+        if os.environ.get("OPENAI_API_KEY"):
+            st.info("Using GPT to analyze the text...")
+            bearings = extract_bearings_with_gpt(extracted_text)
+
+        # If GPT fails or no API key, fall back to pattern matching
+        if not bearings:
+            st.info("Falling back to pattern matching...")
+            bearings = extract_bearings_from_text(extracted_text)
+
+        return bearings
+
+    except Exception as e:
+        st.error(f"Error processing PDF: {str(e)}")
+        return []
 
 def extract_bearings_from_text(text):
     """Extract bearings from text with more flexible pattern matching."""
@@ -78,36 +179,6 @@ def extract_bearings_from_text(text):
 
     except Exception as e:
         st.error(f"Error parsing text: {str(e)}")
-        return []
-
-def process_pdf(uploaded_file):
-    """Process uploaded PDF file and extract bearings."""
-    try:
-        # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-            tmp_file.write(uploaded_file.getvalue())
-            pdf_path = tmp_file.name
-
-        # Convert PDF to images
-        images = convert_from_path(pdf_path)
-
-        # Extract text from each page
-        extracted_text = ""
-        for i, image in enumerate(images):
-            text = pytesseract.image_to_string(image)
-            extracted_text += f"\n--- Page {i+1} ---\n{text}\n"
-
-        # Clean up temporary file
-        os.unlink(pdf_path)
-
-        # Display raw extracted text
-        st.text_area("Raw Extracted Text", extracted_text, height=300)
-
-        # Extract bearings from text
-        bearings = extract_bearings_from_text(extracted_text)
-        return bearings
-    except Exception as e:
-        st.error(f"Error processing PDF: {str(e)}")
         return []
 
 def dms_to_decimal(degrees, minutes, seconds, cardinal_ns, cardinal_ew):
