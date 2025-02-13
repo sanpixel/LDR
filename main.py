@@ -800,7 +800,7 @@ def export_pdf():
             spaceAfter=30,
             alignment=TA_CENTER
         )
-        story.append(Paragraph("Property Survey Report", title_style))
+        story.append(Paragraph("Property SurveyReport", title_style))
 
         # Add property information if available
         if st.session_state.supplemental_info:
@@ -830,10 +830,6 @@ def export_pdf():
             story.append(Spacer(1, 20))
 
         # Create a drawing of the lines using ReportLab
-        from reportlab.graphics import shapes
-        from reportlab.graphics.shapes import Drawing, Line, String, Circle
-        from reportlab.lib import colors
-
         # Calculate the bounds of the drawing
         if not st.session_state.lines.empty:
             min_x = min(st.session_state.lines['start_x'].min(), st.session_state.lines['end_x'].min())
@@ -908,7 +904,7 @@ def export_pdf():
                 ('FONTSIZE', (0, 0), (-1, -1), 10),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey90),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#E6E6E6')),  # Light gray background
             ]))
             story.append(bearing_table)
 
