@@ -593,6 +593,10 @@ def draw_lines_from_bearings():
     if not st.session_state.parsed_bearings:
         return
 
+    # Reset current point and lines DataFrame
+    st.session_state.current_point = [0, 0]
+    st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance', 'monument'])
+
     for line_num, bearing in enumerate(st.session_state.parsed_bearings):
         # Only process lines with non-zero distance
         distance = bearing['distance']
@@ -1140,6 +1144,10 @@ def draw_lines_from_bearings():
     """Draw lines using the parsed bearings from session state."""
     if not st.session_state.parsed_bearings:
         return
+
+    # Reset current point and lines DataFrame
+    st.session_state.current_point = [0, 0]
+    st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance', 'monument'])
 
     for line_num, bearing in enumerate(st.session_state.parsed_bearings):
         # Only process lines with non-zero distance
