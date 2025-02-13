@@ -483,47 +483,53 @@ def main():
                 )
 
     # Control Buttons
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
 
     # Draw Lines button
-    if st.button("Draw Lines", use_container_width=True):
-        for line_num in range(4):
-            # Only process lines with non-zero distance
-            distance = st.session_state[f"distance_{line_num}"]
-            if distance > 0:
-                # Convert DMS to decimal degrees
-                bearing = dms_to_decimal(
-                    st.session_state[f"degrees_{line_num}"],
-                    st.session_state[f"minutes_{line_num}"],
-                    st.session_state[f"seconds_{line_num}"],
-                    st.session_state[f"cardinal_ns_{line_num}"],
-                    st.session_state[f"cardinal_ew_{line_num}"]
-                )
+    with col1:
+        if st.button("Draw Lines", use_container_width=True):
+            for line_num in range(4):
+                # Only process lines with non-zero distance
+                distance = st.session_state[f"distance_{line_num}"]
+                if distance > 0:
+                    # Convert DMS to decimal degrees
+                    bearing = dms_to_decimal(
+                        st.session_state[f"degrees_{line_num}"],
+                        st.session_state[f"minutes_{line_num}"],
+                        st.session_state[f"seconds_{line_num}"],
+                        st.session_state[f"cardinal_ns_{line_num}"],
+                        st.session_state[f"cardinal_ew_{line_num}"]
+                    )
 
-                # Calculate new endpoint
-                end_point = calculate_endpoint(st.session_state.current_point, bearing, distance)
+                    # Calculate new endpoint
+                    end_point = calculate_endpoint(st.session_state.current_point, bearing, distance)
 
+                    # Create bearing description
+                    bearing_desc = f"{st.session_state[f'cardinal_ns_{line_num}']} {st.session_state[f'degrees_{line_num}']}° {st.session_state[f'minutes_{line_num}']}' {st.session_state[f'seconds_{line_num}']}\" {st.session_state[f'cardinal_ew_{line_num}']}"
 
-                # Create bearing description
-                bearing_desc = f"{st.session_state[f'cardinal_ns_{line_num}']} {st.session_state[f'degrees_{line_num}']}° {st.session_state[f'minutes_{line_num}']}' {st.session_state[f'seconds_{line_num}']}\" {st.session_state[f'cardinal_ew_{line_num}']}"
+                    # Add new line to DataFrame
+                    new_line = pd.DataFrame({
+                        'start_x': [st.session_state.current_point[0]],
+                        'start_y': [st.session_state.current_point[1]],
+                        'end_x': [end_point[0]],
+                        'end_y': [end_point[1]],
+                        'bearing': [bearing],
+                        'bearing_desc': [bearing_desc],
+                        'distance': [distance]
+                    })
+                    st.session_state.lines = pd.concat([st.session_state.lines, new_line], ignore_index=True)
 
-                # Add new line to DataFrame
-                new_line = pd.DataFrame({
-                    'start_x': [st.session_state.current_point[0]],
-                    'start_y': [st.session_state.current_point[1]],
-                    'end_x': [end_point[0]],
-                    'end_y': [end_point[1]],
-                    'bearing': [bearing],
-                    'bearing_desc': [bearing_desc],
-                    'distance': [distance]
-                })
-                st.session_state.lines = pd.concat([st.session_state.lines, new_line], ignore_index=True)
+                    # Update current point
+                    st.session_state.current_point = end_point
 
-                # Update current point
-                st.session_state.current_point = end_point
+    # Reset Lines button
+    with col2:
+        if st.button("Reset Lines", use_container_width=True):
+            st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
+            st.session_state.current_point = [0, 0]
 
     # Add Rectangle button
-    with col1:
+    with col3:
         if st.button("Add Rectangle", use_container_width=True):
             if st.session_state.get(f"distance_0", 0) > 0:
                 rectangle_lines = create_rectangle(st.session_state.current_point, st.session_state[f"distance_0"])
@@ -533,13 +539,13 @@ def main():
                 st.error("Distance must be greater than 0")
 
     # Clear all button
-    with col2:
+    with col4:
         if st.button("Clear All", use_container_width=True):
             st.session_state.lines = pd.DataFrame(columns=['start_x', 'start_y', 'end_x', 'end_y', 'bearing', 'bearing_desc', 'distance'])
             st.session_state.current_point = [0, 0]
 
     # Export DXF button
-    with col3:
+    with col5:
         if st.button("Export DXF", use_container_width=True):
             if not st.session_state.lines.empty:
                 try:
@@ -558,22 +564,6 @@ def main():
             else:
                 st.warning("Add some lines before exporting")
 
-    # Test DXF button
-    with col4:
-        if st.button("Test DXF", use_container_width=True):
-            try:
-                test_dxf_data = create_test_dxf()
-                if test_dxf_data and len(test_dxf_data) > 0:
-                    st.download_button(
-                        label="Download Test DXF",
-                        data=test_dxf_data,
-                        file_name="test.dxf",
-                        mime="application/octet-stream"
-                    )
-                else:
-                    st.error("Error: Generated test DXF file is empty")
-            except Exception as e:
-                st.error(f"Error creating test DXF file: {str(e)}")
 
     # Display the plot
     fig = draw_lines()
