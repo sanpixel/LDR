@@ -1165,7 +1165,7 @@ def main():
     with st.container():
         for line_num in range(st.session_state.line_count):
             with st.expander(f"Line {line_num + 1}", expanded=True):
-                col1, col2, col3, col4, col5, col6, col7 = st.columns([1.5,1,1,1,1.5,1.5,2])
+                col1, col2, col3, col4, col5, col6, col7 = st.columns([1.5,1,1,1,1.5,1.5,3])
 
                 # Only set default values if not already initialized from PDF
                 init_key = f"init_bearing_{line_num}"
