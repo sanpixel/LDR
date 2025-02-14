@@ -197,7 +197,7 @@ def extract_bearings_from_text(text):
 def dms_to_decimal(degrees, minutes, seconds, cardinal_ns, cardinal_ew):
     """Convert DMS (Degrees, Minutes, Seconds) to decimal degrees (azimuth)."""
     decimal = float(degrees) + float(minutes)/60 + float(seconds)/3600
-    
+
     # Convert surveyor's bearing to azimuth (clockwise from north)
     if cardinal_ns == 'North' and cardinal_ew == 'East':
         azimuth = decimal
@@ -207,7 +207,7 @@ def dms_to_decimal(degrees, minutes, seconds, cardinal_ns, cardinal_ew):
         azimuth = 180 - decimal
     else:  # South and West
         azimuth = 180 + decimal
-        
+
     return azimuth % 360
 
 def decimal_to_dms(decimal_degrees):
@@ -794,7 +794,7 @@ def export_pdf():
     try:
         # Create PDF buffer
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=72)
+        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=12, leftMargin=12, topMargin=12, bottomMargin=12)
         # Create the story (content) for the PDF
         story = []
         styles = getSampleStyleSheet()
@@ -804,7 +804,7 @@ def export_pdf():
             'CustomTitle',
             parent=styles['Heading1'],
             fontSize=16,
-            spaceAfter=30,
+            spaceAfter=2,
             alignment=TA_CENTER
         )
         story.append(Paragraph("Property Survey Report", title_style))
@@ -814,10 +814,10 @@ def export_pdf():
             'Note',
             parent=styles['Normal'],
             fontSize=10,
-            spaceAfter=20,
+            spaceAfter=2,
             alignment=TA_CENTER
         )
-        story.append(Paragraph("All bearings are referenced to the Georgia State Plane Coordinate System", note_style))
+        story.append(Paragraph("Computer recognized bearings are referenced to the Georgia State Plane Coordinate System from provided legal description, please verify property lines with a licensed surveyor", note_style))
 
         # Add property information if available
         if st.session_state.supplemental_info:
@@ -825,7 +825,7 @@ def export_pdf():
                 'InfoStyle',
                 parent=styles['Normal'],
                 fontSize=12,
-                spaceAfter=12,
+                spaceAfter=2,
                 alignment=TA_LEFT
             )
 
@@ -840,7 +840,7 @@ def export_pdf():
             info_table.setStyle(TableStyle([
                 ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
                 ('FONTSIZE', (0, 0), (-1, -1), 12),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ]))
             story.append(info_table)
@@ -868,7 +868,7 @@ def export_pdf():
             scale_y = height / (max_y - min_y) if max_y != min_y else 1
             scale = min(scale_x, scale_y)
 
-            d = Drawing(width + 50, height + 50)  # Add margins
+            d = Drawing(width + 5, height + 5)  # Add margins
 
             # Helper function to transform coordinates
             def transform_point(x, y):
@@ -1244,7 +1244,14 @@ def main():
     # Display supplemental information if available
     if st.session_state.supplemental_info:
         st.subheader("Property Information")
-        st.json(st.session_state.supplemental_info)
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.metric("Land Lot", st.session_state.supplemental_info.get('land_lot', 'N/A'))
+        with col2:
+            st.metric("District", st.session_state.supplemental_info.get('district', 'N/A'))
+        with col3:
+            st.metric("County", st.session_state.supplemental_info.get('county', 'N/A'))
 
     # Display PDF image if available
     if st.session_state.pdf_image:
