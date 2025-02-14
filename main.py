@@ -454,24 +454,24 @@ def draw_lines():
             marker=dict(size=8)
         ))
 
-    # Update layout with scroll/pan enabled and zoom disabled
+    # Update layout with both zoom and pan enabled
     fig.update_layout(
         showlegend=False,
         title='Line Drawing',
         xaxis=dict(
-            showgrid=False,
-            zeroline=False,
-            showline=False,
-            showticklabels=False,
+            showgrid=True,
+            zeroline=True,
+            showline=True,
+            showticklabels=True,
             scaleanchor="y",
             scaleratio=1,
             constrain="domain"
         ),
         yaxis=dict(
-            showgrid=False,
-            zeroline=False,
-            showline=False,
-            showticklabels=False,
+            showgrid=True,
+            zeroline=True,
+            showline=True,
+            showticklabels=True,
             constrain="domain"
         ),
         width=800,
@@ -479,11 +479,10 @@ def draw_lines():
         dragmode='pan'  # Enable panning by default
     )
 
-    # Configure interaction modes
+    # Configure modebar with both zoom and pan options
     fig.update_layout(
         modebar=dict(
-            remove=['zoomIn', 'zoomOut', 'autoScale'],
-            add=['pan']
+            add=['zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d']
         )
     )
 
@@ -836,7 +835,7 @@ def export_pdf():
                 ["County:", str(st.session_state.supplemental_info.get('county', 'N/A'))]
             ]
 
-            info_table = Table(info_data, colWidths=[1.5*inch, 4*inch])
+            info_table = Table(info_data, colWidths=[1.5*inch])
             info_table.setStyle(TableStyle([
                 ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
                 ('FONTSIZE', (0, 0), (-1, -1), 12),
@@ -1244,7 +1243,7 @@ def main():
     # Display supplemental information if available
     if st.session_state.supplemental_info:
         st.subheader("Property Information")
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3 = st.columns([4, 3, 3])
 
         with col1:
             st.metric("Land Lot", st.session_state.supplemental_info.get('land_lot', 'N/A'))
