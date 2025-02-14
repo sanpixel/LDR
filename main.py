@@ -290,24 +290,27 @@ def create_dxf():
                 msp.add_circle(start, radius=0.5)
                 msp.add_circle(end, radius=0.5)
 
-                # Calculate line angle for dimension placement
+                # Calculate line angle for aligned dimension
                 dx = end[0] - start[0]
                 dy = end[1] - start[1]
-                angle = np.degrees(np.arctan2(dy, dx))
+                angle = np.arctan2(dy, dx)
 
-                # Calculate dimension line offset perpendicular to the line
-                offset_distance = 2.0  # Distance for dimension line placement
-                offset_x = offset_distance * np.sin(np.radians(angle + 90))  # Perpendicular offset
-                offset_y = -offset_distance * np.cos(np.radians(angle + 90))
+                # Calculate dimension line offset perpendicular to the bearing line
+                offset_distance = 2.0  # Adjust this value to control dimension text placement
+                offset_x = offset_distance * np.sin(angle)
+                offset_y = -offset_distance * np.cos(angle)
 
-                # Add linear dimension with proper alignment
-                dim = msp.add_linear_dim(
-                    base=(start[0] + offset_x, start[1] + offset_y),  # Offset base point
-                    p1=start,  # First extension line start
-                    p2=end,   # Second extension line start
-                    angle=angle,  # Use calculated angle
-                    text=f"{row['distance']:.2f}'"  # Add distance text explicitly
-                ).render()  # Required to generate dimension entities
+                # Add aligned dimension
+                dim = msp.add_aligned_dimension(
+                    p1=start,      # Start point
+                    p2=end,        # End point
+                    distance=offset_distance,
+                    text=f"{row['distance']:.2f}'"  # Distance text
+                )
+
+                # Optionally adjust text alignment to be above the dimension line
+                dim.set_dxf_attrib('dimtad', 1)  # Place text above dimension line
+                dim.set_dxf_attrib('dimtix', 0)  # Force text inside extensions
 
                 # Add monument text if available
                 if idx > 0:  # For all points except POB
@@ -319,7 +322,7 @@ def create_dxf():
                             dxfattribs={
                                 "height": 0.8,
                                 "insert": (start[0] + 1, start[1] + 1),
-                                "rotation": angle  # Align text with line
+                                "rotation": np.degrees(angle)  # Align text with line
                             }
                         )
 
@@ -330,7 +333,7 @@ def create_dxf():
                         dxfattribs={
                             "height": 0.8,
                             "insert": (end[0] + 1, end[1] + 1),
-                            "rotation": angle  # Align text with line
+                            "rotation": np.degrees(angle)  # Align text with line
                         }
                     )
             except Exception as line_error:
@@ -761,16 +764,17 @@ def export_cad():
             try:
                 # Create line
                 start = FreeCAD.Vector(float(row['start_x']), float(row['start_y']), 0)
-                end = FreeCAD.Vector(float(row['end_x']), float(row['end_y']),0)
+                end = FreeCAD.Vector(float(row['end_x']), float(row['end_y']), 0)
                 line = Part.LineSegment(start, end)
 
                 # Add line to document
-                line_obj = doc.addObject("Part::Feature", f"Line_{idx+1}")                line_obj.Shape = Part.Shape([line])
+                line_obj = doc.addObject("Part::Feature", f"Line_{idx+1}")
+                line_obj.Shape = Part.Shape([line])
                 # Add dimension
                 dim = doc.addObject("TechDraw::DrawViewDimension", f"Dimension_{idx+1}")
                 dim.Type = "Distance"
                 dim.X = (start.x + end.x) / 2
-                dim.Y = (start.y+ end.y) / 2
+                dim.Y = (start.y + end.y) / 2
                 dim.Text = f"{row['distance']:.2f}'"
 
                 # Add monument text if available
