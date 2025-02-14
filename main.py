@@ -290,13 +290,27 @@ def create_dxf():
                 msp.add_circle(start, radius=0.5)
                 msp.add_circle(end, radius=0.5)
 
-                # Add simple linear dimension
-                msp.add_linear_dim(
+                # Calculate line angle for aligned dimension
+                dx = end[0] - start[0]
+                dy = end[1] - start[1]
+                angle = np.arctan2(dy, dx)
+
+                # Calculate dimension line offset perpendicular to the bearing line
+                offset_distance = 2.0  # Adjust this value to control dimension text placement
+                offset_x = offset_distance * np.sin(angle)
+                offset_y = -offset_distance * np.cos(angle)
+
+                # Add aligned dimension
+                dim = msp.add_aligned_dimension(
                     p1=start,      # Start point
                     p2=end,        # End point
-                    base=start,    # Base point
+                    distance=offset_distance,
                     text=f"{row['distance']:.2f}'"  # Distance text
                 )
+
+                # Optionally adjust text alignment to be above the dimension line
+                dim.set_dxf_attrib('dimtad', 1)  # Place text above dimension line
+                dim.set_dxf_attrib('dimtix', 0)  # Force text inside extensions
 
                 # Add monument text if available
                 if idx > 0:  # For all points except POB
@@ -307,7 +321,8 @@ def create_dxf():
                             prev_row['monument'],
                             dxfattribs={
                                 "height": 0.8,
-                                "insert": (start[0] + 1, start[1] + 1)
+                                "insert": (start[0] + 1, start[1] + 1),
+                                "rotation": np.degrees(angle)  # Align text with line
                             }
                         )
 
@@ -317,7 +332,8 @@ def create_dxf():
                         row['monument'],
                         dxfattribs={
                             "height": 0.8,
-                            "insert": (end[0] + 1, end[1] + 1)
+                            "insert": (end[0] + 1, end[1] + 1),
+                            "rotation": np.degrees(angle)  # Align text with line
                         }
                     )
             except Exception as line_error:
@@ -807,7 +823,7 @@ def export_pdf():
             alignment=TA_CENTER
         )
         story.append(Paragraph("Property Survey Report", title_style))
-        
+
         # Add static note under title
         note_style = ParagraphStyle(
             'Note',
