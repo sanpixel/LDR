@@ -195,20 +195,20 @@ def extract_bearings_from_text(text):
         return []
 
 def dms_to_decimal(degrees, minutes, seconds, cardinal_ns, cardinal_ew):
-    """Convert DMS (Degrees, Minutes, Seconds) to decimal degrees."""
+    """Convert DMS (Degrees, Minutes, Seconds) to decimal degrees (azimuth)."""
     decimal = float(degrees) + float(minutes)/60 + float(seconds)/3600
-
-    # Adjust based on cardinal directions
-    if cardinal_ns == 'South':
-        decimal = -decimal
-
-    # Convert to bearing (clockwise from north)
-    if cardinal_ew == 'East':
-        decimal = 90 - decimal
-    else:  # West
-        decimal = 270 + decimal
-
-    return decimal % 360
+    
+    # Convert surveyor's bearing to azimuth (clockwise from north)
+    if cardinal_ns == 'North' and cardinal_ew == 'East':
+        azimuth = decimal
+    elif cardinal_ns == 'North' and cardinal_ew == 'West':
+        azimuth = 360 - decimal
+    elif cardinal_ns == 'South' and cardinal_ew == 'East':
+        azimuth = 180 - decimal
+    else:  # South and West
+        azimuth = 180 + decimal
+        
+    return azimuth % 360
 
 def decimal_to_dms(decimal_degrees):
     """Convert decimal degrees back to DMS format."""
