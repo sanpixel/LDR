@@ -808,6 +808,16 @@ def export_pdf():
             alignment=TA_CENTER
         )
         story.append(Paragraph("Property Survey Report", title_style))
+        
+        # Add static note under title
+        note_style = ParagraphStyle(
+            'Note',
+            parent=styles['Normal'],
+            fontSize=10,
+            spaceAfter=20,
+            alignment=TA_CENTER
+        )
+        story.append(Paragraph("All bearings are referenced to the Georgia State Plane Coordinate System", note_style))
 
         # Add property information if available
         if st.session_state.supplemental_info:
