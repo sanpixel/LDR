@@ -1016,18 +1016,23 @@ def main():
                         st.success(f"Found {len(bearings)} bearings in the PDF")
 
                         # Update line count to match number of bearings
-                        st.session_state.line_count = len(bearings)
+                        if 'line_count' not in st.session_state:
+                            st.session_state.line_count = len(bearings)
+                        else:
+                            st.session_state.line_count = len(bearings)
 
-                        # Auto-fill the form fields with extracted bearings
+                        # Initialize session state values before widgets are created
                         for i in range(len(bearings)):
-                            bearing = bearings[i]
-                            st.session_state[f"cardinal_ns_{i}"] = bearing['cardinal_ns']
-                            st.session_state[f"degrees_{i}"] = bearing['degrees']
-                            st.session_state[f"minutes_{i}"] = bearing['minutes']
-                            st.session_state[f"seconds_{i}"] = bearing['seconds']
-                            st.session_state[f"cardinal_ew_{i}"] = bearing['cardinal_ew']
-                            st.session_state[f"distance_{i}"] = bearing['distance']
-                            st.session_state[f"monument_{i}"] = bearing['monument']
+                            if f"init_bearing_{i}" not in st.session_state:
+                                bearing = bearings[i]
+                                st.session_state[f"init_bearing_{i}"] = True
+                                st.session_state[f"cardinal_ns_{i}"] = bearing['cardinal_ns']
+                                st.session_state[f"degrees_{i}"] = bearing['degrees']
+                                st.session_state[f"minutes_{i}"] = bearing['minutes']
+                                st.session_state[f"seconds_{i}"] = bearing['seconds']
+                                st.session_state[f"cardinal_ew_{i}"] = bearing['cardinal_ew']
+                                st.session_state[f"distance_{i}"] = bearing['distance']
+                                st.session_state[f"monument_{i}"] = bearing['monument']
 
     with col2:
         if st.session_state.pdf_image:
@@ -1159,69 +1164,69 @@ def main():
     # Create a container for all line inputs
     with st.container():
         for line_num in range(st.session_state.line_count):
-            st.write(f"Line {line_num + 1}")
-            col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
+            with st.expander(f"Line {line_num + 1}", expanded=True):
+                col1, col2, col3, col4, col5, col6, col7 = st.columns([1,1,1,1,1,1.5,2])
 
-            with col1:
-                cardinal_ns = st.selectbox(
-                    "N/S",
-                    ["North", "South"],
-                    key=f"cardinal_ns_{line_num}"
-                )
+                # Only set default values if not already initialized from PDF
+                init_key = f"init_bearing_{line_num}"
 
-            with col2:
-                degrees = st.number_input(
-                    "Deg",
-                    min_value=0,
-                    max_value=90,
-                    value=st.session_state.get(f"degrees_{line_num}", 0),
-                    step=1,
-                    format="%d",
-                    key=f"degrees_{line_num}"
-                )
+                with col1:
+                    cardinal_ns = st.selectbox(
+                        "Cardinal",
+                        ("North", "South"),
+                        key=f"cardinal_ns_{line_num}",
+                        index=0 if not init_key in st.session_state else None
+                    )
 
-            with col3:
-                minutes = st.number_input(
-                    "Min",
-                    min_value=0,
-                    max_value=59,
-                    value=st.session_state.get(f"minutes_{line_num}", 0),
-                    format="%d",
-                    key=f"minutes_{line_num}"
-                )
+                with col2:
+                    degrees = st.number_input(
+                        "Degrees",
+                        min_value=0,
+                        max_value=90,
+                        value=0 if not init_key in st.session_state else None,
+                        key=f"degrees_{line_num}"
+                    )
 
-            with col4:
-                seconds = st.number_input(
-                    "Sec",
-                    min_value=0,
-                    max_value=59,
-                    value=st.session_state.get(f"seconds_{line_num}", 0),
-                    format="%d",
-                    key=f"seconds_{line_num}"
-                )
+                with col3:
+                    minutes = st.number_input(
+                        "Minutes",
+                        min_value=0,
+                        max_value=59,
+                        value=0 if not init_key in st.session_state else None,
+                        key=f"minutes_{line_num}"
+                    )
 
-            with col5:
-                cardinal_ew = st.selectbox(
-                    "E/W",
-                    ["East", "West"],
-                    key=f"cardinal_ew_{line_num}"
-                )
+                with col4:
+                    seconds = st.number_input(
+                        "Seconds",
+                        min_value=0,
+                        max_value=59,
+                        value=0 if not init_key in st.session_state else None,
+                        key=f"seconds_{line_num}"
+                    )
 
-            with col6:
-                distance = st.number_input(
-                    "Distance",
-                    min_value=0.0,
-                    value=st.session_state.get(f"distance_{line_num}", 0.00),
-                    format="%.2f",
-                    key=f"distance_{line_num}"
-                )
+                with col5:
+                    cardinal_ew = st.selectbox(
+                        "Cardinal",
+                        ("East", "West"),
+                        key=f"cardinal_ew_{line_num}",
+                        index=0 if not init_key in st.session_state else None
+                    )
 
-            with col7:
-                monument = st.text_input(
-                    "Monument",
-                    value=st.session_state.get(f"monument_{line_num}", ""),
-                    key=f"monument_{line_num}"
-                )
+                with col6:
+                    distance = st.number_input(
+                        "Distance (feet)",
+                        min_value=0.0,
+                        value=0.0 if not init_key in st.session_state else None,
+                        key=f"distance_{line_num}"
+                    )
+
+                with col7:
+                    monument = st.text_input(
+                        "Monument",
+                        value="" if not init_key in st.session_state else None,
+                        key=f"monument_{line_num}"
+                    )
 
     # Display the plot
     fig = draw_lines()
