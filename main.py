@@ -926,22 +926,43 @@ def export_pdf():
         return None
 
 
-def manual_bearing_input_to_parsed_format(cardinal_ns, degrees, minutes, seconds, cardinal_ew, distance, monument=""):
-    """Convert manual bearing input fields to the same format as parsed bearings."""
+def manual_bearing_input_to_parsed_format(cardinal_ns, degrees, minutes, seconds, cardinal_ew, distance, monument):
+    """Convert manual input fields to parsed bearing format."""
     try:
-        bearing = {
-            'cardinal_ns': cardinal_ns,
-            'degrees': int(degrees),
-            'minutes': int(minutes),
-            'seconds': int(seconds),
-            'cardinal_ew': cardinal_ew,
-            'distance': float(distance),
-            'monument': monument,
-            'original_text': f"{cardinal_ns} {degrees}° {minutes}' {seconds}\" {cardinal_ew} {distance} feet"
-        }
-        return bearing
-    except (ValueError, TypeError) as e:
-        st.error(f"Invalid bearing input: {str(e)}")
+        # Convert inputs to appropriate types
+        degrees = int(degrees) if degrees is not None else 0
+        minutes = int(minutes) if minutes is not None else 0
+        seconds = int(seconds) if seconds is not None else 0
+        distance = float(distance) if distance is not None else 0.00
+
+        # Skip default value warning if values are already set
+        if cardinal_ns and cardinal_ew and (degrees > 0 or minutes > 0 or seconds > 0 or distance > 0):
+            return {
+                'cardinal_ns': cardinal_ns,
+                'degrees': degrees,
+                'minutes': minutes,
+                'seconds': seconds,
+                'cardinal_ew': cardinal_ew,
+                'distance': distance,
+                'monument': monument if monument else "",
+                'original_text': f"{cardinal_ns} {degrees}° {minutes}' {seconds}\" {cardinal_ew}, {distance} feet {monument}"
+            }
+        elif any([cardinal_ns, cardinal_ew, degrees, minutes, seconds, distance]):
+            # Show warning only if some values are set but not all
+            st.warning("Created bearing with default values. Please verify the input.")
+            return {
+                'cardinal_ns': cardinal_ns or "North",
+                'degrees': degrees,
+                'minutes': minutes,
+                'seconds': seconds,
+                'cardinal_ew': cardinal_ew or "East",
+                'distance': distance,
+                'monument': monument if monument else "",
+                'original_text': f"{cardinal_ns or 'North'} {degrees}° {minutes}' {seconds}\" {cardinal_ew or 'East'}, {distance} feet {monument}"
+            }
+        return None
+    except Exception as e:
+        st.error(f"Error parsing manual input: {str(e)}")
         return None
 
 
