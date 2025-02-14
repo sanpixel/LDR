@@ -784,7 +784,6 @@ def export_cad():
         st.error(f"CAD creation error: {str(e)}")
         return None
 
-
 def export_pdf():
     """Create a PDF file containing the line drawing and property information."""
     if st.session_state.lines.empty:
@@ -808,7 +807,7 @@ def export_pdf():
             alignment=TA_CENTER
         )
         story.append(Paragraph("Property Survey Report", title_style))
-        
+
         # Add static note under title
         note_style = ParagraphStyle(
             'Note',
@@ -1243,21 +1242,43 @@ def main():
 
     # Display supplemental information if available
     if st.session_state.supplemental_info:
-        st.subheader("Property Information")
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-            st.metric("Land Lot", st.session_state.supplemental_info.get('land_lot', 'N/A'))
-        with col2:
-            st.metric("District", st.session_state.supplemental_info.get('district', 'N/A'))
-        with col3:
-            st.metric("County", st.session_state.supplemental_info.get('county', 'N/A'))
+        with st.expander("📋 Property Information", expanded=True):
+            st.markdown("---")  # Add a subtle divider
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Land Lot", st.session_state.supplemental_info.get('land_lot', 'N/A'))
+            with col2:
+                st.metric("District", st.session_state.supplemental_info.get('district', 'N/A'))
+            with col3:
+                st.metric("County", st.session_state.supplemental_info.get('county', 'N/A'))
+            st.markdown("---")  # Add a subtle divider
 
     # Display PDF image if available
     if st.session_state.pdf_image:
-        st.subheader("PDF Document")
-        st.write("Please review your document shown below to verify the system correctly recognized the meets and bounds")
-        st.image(st.session_state.pdf_image, caption="PDF First Page", use_container_width=True)
+        with st.expander("📄 Original Document", expanded=True):
+            st.markdown("---")  # Add a subtle divider
+            # Create two columns with adjusted ratio for better readability
+            info_col, image_col = st.columns([1, 2.5])
+
+            with info_col:
+                st.markdown("### Document Details")
+                st.info("Please verify the following:")
+                st.markdown("""
+                - ✓ All bearings are correctly identified
+                - ✓ Property boundaries match description
+                - ✓ Monuments are properly noted
+                """)
+
+                # Add some metadata metrics with divider
+                st.markdown("---")
+                if st.session_state.parsed_bearings:
+                    st.metric("Lines Detected", len(st.session_state.parsed_bearings))
+                if st.session_state.supplemental_info:
+                    st.metric("Property Data", "Complete" if all(st.session_state.supplemental_info.values()) else "Partial")
+
+            with image_col:
+                st.image(st.session_state.pdf_image, use_column_width=True)
+            st.markdown("---")  # Add a subtle divider
 
 if __name__ == "__main__":
     main()
