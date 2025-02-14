@@ -290,7 +290,7 @@ def create_dxf():
                 msp.add_circle(start, radius=0.5)
                 msp.add_circle(end, radius=0.5)
 
-                # Calculate line angle for aligned dimension
+                # Calculate line angle for dimension alignment
                 dx = end[0] - start[0]
                 dy = end[1] - start[1]
                 angle = np.arctan2(dy, dx)
@@ -300,17 +300,23 @@ def create_dxf():
                 offset_x = offset_distance * np.sin(angle)
                 offset_y = -offset_distance * np.cos(angle)
 
-                # Add aligned dimension
-                dim = msp.add_aligned_dimension(
-                    p1=start,      # Start point
-                    p2=end,        # End point
-                    distance=offset_distance,
+                # Create base point for dimension
+                base_point = (
+                    start[0] + offset_x,
+                    start[1] + offset_y
+                )
+
+                # Add linear dimension with proper rotation
+                dim = msp.add_linear_dim(
+                    base=base_point,      # Base point (offset from line)
+                    p1=start,             # Start point
+                    p2=end,               # End point
+                    angle=np.degrees(angle),  # Align dimension with line
                     text=f"{row['distance']:.2f}'"  # Distance text
                 )
 
-                # Optionally adjust text alignment to be above the dimension line
-                dim.set_dxf_attrib('dimtad', 1)  # Place text above dimension line
-                dim.set_dxf_attrib('dimtix', 0)  # Force text inside extensions
+                # Render the dimension to generate entities
+                dim.render()
 
                 # Add monument text if available
                 if idx > 0:  # For all points except POB
@@ -768,8 +774,7 @@ def export_cad():
                 line = Part.LineSegment(start, end)
 
                 # Add line to document
-                line_obj = doc.addObject("Part::Feature", f"Line_{idx+1}")
-                line_obj.Shape = Part.Shape([line])
+                line_obj = doc.addObject("Part::Feature", f"Line_{idx+1}")                line_obj.Shape = Part.Shape([line])
                 # Add dimension
                 dim = doc.addObject("TechDraw::DrawViewDimension", f"Dimension_{idx+1}")
                 dim.Type = "Distance"
